@@ -1,0 +1,1 @@
+accessibility=false, error=-25211, reason=osascript is not allowed assistive access.
