@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Unified Chrome control over authenticated SSH; no raw debug port forwarding."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def main():
+    targets = json.loads((ROOT / "config/targets.json").read_text())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--machine", default="zengxiaoximac01", choices=list(targets))
+    identity = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("TMUX_PANE") or str(os.getppid())
+    actor = os.environ.get("CHROME_CONTROL_ACTOR", "client-" + hashlib.sha256(identity.encode()).hexdigest()[:16])
+    parser.add_argument("--actor", default=actor)
+    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "pages", "call", "mcp"])
+    parser.add_argument("tool", nargs="?")
+    parser.add_argument("arguments", nargs="?", default="{}")
+    args = parser.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,100}", args.actor):
+        parser.error("Invalid actor")
+    if args.command == "targets":
+        print(json.dumps(targets, indent=2))
+        return 0
+    if args.command == "call":
+        if not args.tool:
+            parser.error("call requires TOOL and optional JSON arguments")
+        if not isinstance(json.loads(args.arguments), dict):
+            parser.error("Arguments must be a JSON object")
+    target = targets[args.machine]
+    remote = [target["node"], target["root"] + "/interfaces/cli.mjs", args.actor, args.command]
+    if args.command == "call":
+        remote += [args.tool, args.arguments]
+    ssh = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", target["ssh"], shlex.join(remote)]
+    try:
+        return subprocess.run(ssh, timeout=None if args.command == "mcp" else 50).returncode
+    except subprocess.TimeoutExpired:
+        print(json.dumps({"error": "Remote operation exceeded 50 seconds; no retry was sent"}), file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,9 @@
+{
+  "matches": true,
+  "files": {
+    "package-lock.json": "99741cecdf07866e038f9b844a3593bfb4897a3139b05e7515d447330d465ec5",
+    "application/control.mjs": "0e774705ea11d99b703f0a1f6a534ee9f46b0f1b1800d7b8a9baff63e47a5e71",
+    "adapters/daemon.mjs": "dd4d8463334a860a5bc75a480d044bc24ad045f15c955c473d87b8414bef55e6",
+    "interfaces/mcp.mjs": "52036aa2b421640228d26df83acbfad90cf8562a883bd109bdd418b8bcaf5477"
+  }
+}

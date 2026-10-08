@@ -1,0 +1,28 @@
+{
+  "tools": 36,
+  "sshMcpVerified": true,
+  "daemon": {
+    "running": true,
+    "browserVerified": false,
+    "pid": 2202,
+    "socketPath": "/Users/brook/Library/Caches/chrome-control/runtime/chrome-devtools-mcp-cc001/server.sock",
+    "startDate": "2026-10-08T00:36:45.662Z",
+    "version": "1.10.1",
+    "args": [
+      "--no-usage-statistics",
+      "--no-performance-crux",
+      "--redactNetworkHeaders",
+      "--experimentalVision",
+      "--workspace",
+      "/Users/brook/workspace/chrome-control",
+      "--workspace",
+      "/Users/brook/Downloads",
+      "--workspace",
+      "/Users/brook/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil",
+      "--autoConnect"
+    ]
+  },
+  "missingLeaseBlocked": true,
+  "fileInventoryVerified": true,
+  "existingBrowserVerified": false
+}

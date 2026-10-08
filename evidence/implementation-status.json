@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-08",
+  "upstream": {"name": "chrome-devtools-mcp", "version": "1.10.1", "license": "Apache-2.0"},
+  "machine": "zengxiaoximac01",
+  "chromeVersion": "155.0.8059.40",
+  "runtime": "Node 26.5.0",
+  "installed": {"cli": true, "globalMcp": true, "macDaemon": true, "loginBootstrap": true, "remoteDebuggingToggle": true},
+  "verified": {"sshMcp": true, "fileInventory": true, "leaseGate": true, "isolatedBrowserContracts": true, "existingChromeProfile": false, "nativeGuiControl": false},
+  "blocker": "Chrome native Allow connection dialog; SSH osascript lacks assistive access (-1728). list_pages timed out. No approval was fabricated.",
+  "playwrightExtensionAttempt": {"installed": false, "forcedPreferenceApi": false, "chromePolicy": "Not set", "temporaryPolicyRemoved": true},
+  "browserRestarted": false,
+  "cookiesCopied": false,
+  "publicDebugPortOpened": false,
+  "downloadBehaviorChanged": false,
+  "cleanup": {"ownSettingsTabsClosed": [1832229363,1832229366], "oldProbeDaemonStopped": true}
+}

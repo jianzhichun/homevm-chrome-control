@@ -1,0 +1,4 @@
+node_modules/
+__pycache__/
+logs/
+config/deployed-tools.json

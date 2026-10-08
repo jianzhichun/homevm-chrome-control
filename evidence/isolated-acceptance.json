@@ -1,0 +1,12 @@
+{
+  "mode": "isolated",
+  "existingMacProfileVerified": false,
+  "checks": [
+    "isolated-browser-connected",
+    "trusted-input-and-iframe-snapshot",
+    "file-upload",
+    "page-screenshot",
+    "download-local-completion-and-sha256",
+    "owned-page-cleanup"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "zengxiaoximac01": {
+    "ssh": "zengxiaoximac01",
+    "node": "/opt/homebrew/bin/node",
+    "root": "/Users/brook/workspace/chrome-control"
+  }
+}
