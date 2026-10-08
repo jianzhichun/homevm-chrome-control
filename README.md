@@ -59,7 +59,7 @@ node scripts/acceptance.mjs       # homevm 独立、无现有登录态的 headle
 node scripts/probe-mcp.mjs        # Mac SSH/MCP，不要求连接用户浏览器
 ```
 
-证据：`evidence/isolated-acceptance.json`、`evidence/mac-mcp.json`。隔离验收涵盖可信输入、iframe、上传、截图、实际下载后 hash 和清理；不能替代 Mac 现有 profile 的许可验收。网页权限、网站的验证码/二次认证、外发与签署授权仍遵循正常边界。
+证据：`evidence/isolated-acceptance.json`、`evidence/mac-mcp.json`、`evidence/acceptance-report.json`。隔离验收涵盖可信输入、iframe、上传、截图、实际下载后 hash 和清理；不能替代 Mac 现有 profile 的许可验收。网页权限、网站的验证码/二次认证、外发与签署授权仍遵循正常边界。
 
 ## 上游
 
@@ -67,3 +67,14 @@ node scripts/probe-mcp.mjs        # Mac SSH/MCP，不要求连接用户浏览器
 - https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/advanced-usage.md
 - https://github.com/chromium/chromium/blob/main/chrome/browser/devtools/devtools_connection_dialog.cc
 - https://github.com/microsoft/playwright/blob/main/packages/extension/README.md
+
+## Windows
+
+`zengxiaoxiwin01` 是物理机（不在 winfleet VM 池）。winfleet (winmcp) 已有 Click／Type／Screenshot 等原生 Windows GUI 工具，但尚未装 Chrome DevTools 扩展。
+
+适配路径：
+1. Daemon 层：Win32 持久进程 + `autoConnect`，复用 `browserctl` 现有模式开关。
+2. 授权：windows-mcp 坐标点击可点 Chrome Allow 确认，与 Mac 需要用户手动操作桌面不同。
+3. hubctl 感知：新增 `zengxiaoxiwin01` 的 browser target 条目，与 Mac 同 `targets.json` 格式。
+
+待 zengxiaoxiwin01 能正常 SSH 连上后实施。不在此次验收范围内。

@@ -1,0 +1,142 @@
+{
+  "date": "2026-10-08",
+  "repo": "/home/dev/workspace/chrome-control",
+  "commit": "0ad7c22",
+
+  "upstream": {
+    "name": "chrome-devtools-mcp",
+    "version": "1.10.1",
+    "license": "Apache-2.0",
+    "sdk": "@modelcontextprotocol/sdk 1.32.1"
+  },
+
+  "target": {
+    "machine": "zengxiaoximac01",
+    "chromeVersion": "155.0.8059.40",
+    "node": "/opt/homebrew/bin/node",
+    "version": "v26.5.0",
+    "browserNotRestarted": true,
+    "cookiesNotCopied": true,
+    "downloadBehaviorNotChanged": true
+  },
+
+  "deployed": {
+    "homevm": "/home/dev/workspace/chrome-control",
+    "mac": "/Users/brook/workspace/chrome-control",
+    "cli": "~/bin/browserctl",
+    "globalMcp": "chrome-control({type:stdio, command:browserctl mcp})",
+    "skill": "~/.claude/skills/chrome-control/SKILL.md",
+    "macDaemon": "launchctl cn.imbecile.chrome-control (RunAtLoad, owned 0600)",
+    "macSocket": "/Users/brook/Library/Caches/chrome-control/runtime/chrome-devtools-mcp-cc001/server.sock",
+    "hubctl": "hubctl browser (command registered, read-only)"
+  },
+
+  "verified": {
+    "homevmIsolatedBrowser": {
+      "status": "passed",
+      "checks": [
+        "isolated-browser-connected",
+        "trusted-input-and-iframe-snapshot",
+        "file-upload",
+        "page-screenshot",
+        "download-local-completion-and-sha256",
+        "owned-page-cleanup"
+      ],
+      "note": "headless Chrome on homevm; existing profile login not used"
+    },
+    "unitTests": {
+      "status": "passed",
+      "count": 3,
+      "tests": [
+        "page ownership excludes another actor, expires and releases",
+        "file verification rejects escapes and partial files, hashes a stable file",
+        "unknown tools and missing page claims fail before touching the browser"
+      ]
+    },
+    "macSshMcp": {
+      "status": "passed",
+      "check": "SSH MCP initialize/listTools/status/fileInventory/lease gate",
+      "note": "does NOT require the browser Allow confirmation"
+    },
+    "deployedHashes": {
+      "status": "passed",
+      "files": ["package-lock.json", "application/control.mjs", "adapters/daemon.mjs", "interfaces/mcp.mjs"],
+      "match": true
+    },
+    "hubctlBrowserIntegration": {
+      "status": "passed",
+      "testCount": 5,
+      "pytest": "66 passed in 0.17s (all tests, including new + existing)"
+    },
+    "existingChromeProfile": {
+      "status": "blocked_then_authorized_desktop",
+      "finalState": "connected (2026-10-08T06:35Z, 7 live tabs listed via desktop Terminal)",
+      "daemonPid": 55687,
+      "accessible": true,
+      "pagesVerified": true,
+      "timeline": [
+        "2026-10-08T00:15Z — remote debugging toggle ON via AppleScript clickButton (#remote-debugging-enabled checkbox)",
+        "2026-10-08T00:17Z — daemon running, autoConnect, but pages requests timed out: Chrome native Allow dialog not accepted",
+        "2026-10-08T00:36Z — accessibility probe: SSH osascript -1728, Terminal GUI session -25211",
+        "2026-10-08T01:20Z — macOS TCC: Terminal granted Accessibility by user",
+        "2026-10-08T01:36Z — desktop Terminal pages command connected; 7 live tabs listed; Chrome Allow confirmed by user",
+        "2026-10-08T01:35-01:36Z — homevm browserctl/MCP pages re-tested: same 7 tabs, lease+snapshot on pageId=7 (DSeek console) confirmed"
+      ]
+    }
+  },
+
+  "newTools": {
+    "upstream": 31,
+    "added": 5,
+    "total": 36,
+    "addedList": [
+      "browser_status — daemon liveness (no browser proof)",
+      "browser_claim_page — 15-minute actor lease before page ops",
+      "browser_release_page — release owned page lease",
+      "browser_download_inventory — list files in workspace roots",
+      "browser_wait_file — stable-size+no-crdownload+SHA256 evidence"
+    ]
+  },
+
+  "knownGaps": {
+    "chromeNativeAllow": "no persistent authorization; daemon restart or 24h idle can re-trigger the modal",
+    "macGuiControl": "osascript -1728 for System Events; direct SSH cannot click native dialogs. Desktop Terminal gui session was the workaround, not a replacement for a dedicated GUI agent",
+    "downloadToolNotLive": "no Browser.cdp download event; filesystem .crdownload+stability+sha256 evidence as substitute",
+    "playwrightExtensionForcelistInstall": "zengxiaoximac01 has no MDM; MCX dscl key removed after proving CFPreferencesAppValueIsForced=false",
+    "windowsTarget": null,
+    "linuxTarget": null
+  },
+
+  "layeredArchitecture": {
+    "domain": "leases, files boundary checks",
+    "application": "control routing, 36 tools (upstream + 5 domain)",
+    "adapters": "OfficialDaemon, BrowserFiles, BrowserProbe (for hubctl)",
+    "interfaces": "browserctl CLI, chrome-control MCP, hubctl browser",
+    "infraPerception": "hubctl browser (read-only row per target + daemon status)"
+  },
+
+  "notInstalledOrRemoved": [
+    "browser-use",
+    "browser-harness",
+    "BrowserOS",
+    "Playwright MCP",
+    "playwright policy ExtensionInstallForcelist"
+  ],
+
+  "upstreamSources": [
+    "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+    "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/advanced-usage.md",
+    "https://github.com/chromium/chromium/blob/main/chrome/browser/devtools/devtools_connection_dialog.cc",
+    "https://github.com/microsoft/playwright/blob/main/packages/extension/README.md"
+  ],
+
+  "rawEvidenceFiles": [
+    "evidence/isolated-acceptance.json",
+    "evidence/mac-mcp.json",
+    "evidence/deployed-hashes.json",
+    "evidence/implementation-status.json",
+    "evidence/gui-accessibility.txt",
+    "evidence/mac-pages.stderr",
+    "evidence/isolated-acceptance.png"
+  ]
+}
