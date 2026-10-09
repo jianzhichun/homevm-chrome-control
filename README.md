@@ -31,7 +31,7 @@ browserctl mcp
 
 UID 必须来自最新快照；页面 ID 必须来自 `pages`。文件路径是浏览器所在 Mac 的路径，不是 homevm 路径。跨 CLI 命令明确传同一个 actor；不要共用其他队员的 actor。
 
-全局 Claude Code MCP 名为 `chrome-control`，通过官方 `mcp add --scope user` 注册；新会话自动可见，已有会话需在正常 MCP 管理界面重连或重新启动。CLI 在当前会话立即可用。不修改 assistant 的权限规则。
+不再注册全局 Claude Code MCP（`chrome-control` 于 2026-10-09 移除：近期会话实际靠 `browserctl call` 即可，MCP 还常连不上）；统一用 `browserctl` CLI，任何会话立即可用。
 
 `status` 只验 daemon，不证明已连接浏览器；`pages` 才真正连接。当前 Mac 首次连接在原生 Allow 弹窗处超时（osascript 无辅助功能权限）。需要在 Mac 正常确认；不改 TCC 数据库、不伪造批准、不重启 Chrome。连接保存在同一个官方 daemon 里；Chrome 或 daemon 断开后可能再次要求 Allow。工具请求 30 秒、外层命令 50 秒超时，不自动重发有副作用的操作。
 
@@ -70,7 +70,7 @@ node scripts/probe-mcp.mjs        # Mac SSH/MCP，不要求连接用户浏览器
 
 ## Windows
 
-`zengxiaoxiwin01` 是物理机（不在 winfleet VM 池）。winfleet (winmcp) 已有 Click／Type／Screenshot 等原生 Windows GUI 工具，但尚未装 Chrome DevTools 扩展。
+`zengxiaoxiwin01` 是物理机（不在 `winmcp vms` 的 libvirt VM 列表里）。`wmcp` 已有 Click／Type／Screenshot 等原生 Windows GUI 命令，但尚未装 Chrome DevTools 扩展。
 
 适配路径：
 1. Daemon 层：Win32 持久进程 + `autoConnect`，复用 `browserctl` 现有模式开关。
