@@ -4,9 +4,9 @@
   "daemon": {
     "running": true,
     "browserVerified": false,
-    "pid": 32228,
+    "pid": 1723,
     "socketPath": "/Users/brook/Library/Caches/chrome-control/runtime/chrome-devtools-mcp-cc001/server.sock",
-    "startDate": "2026-10-08T00:52:28.078Z",
+    "startDate": "2026-10-09T17:31:18.038Z",
     "version": "1.10.1",
     "args": [
       "--no-usage-statistics",

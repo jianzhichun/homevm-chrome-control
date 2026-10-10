@@ -1,0 +1,8 @@
+# 2026-10-10T22:15:54Z Mac re-verification after layered refactor deploy
+$ browserctl --machine zengxiaoximac01 status
+{"running":true,"browserVerified":false,"pid":1723,"socketPath":"/Users/brook/Library/Caches/chrome-control/runtime/chrome-devtools-mcp-cc001/server.sock","startDate":"2026-10-09T17:31:18.038Z","version":"1.10.1","args":["--no-usage-statistics","--no-performance-crux","--redactNetworkHeaders","--experimentalVision","--workspace","/Users/brook/workspace/chrome-control","--workspace","/Users/brook/Downloads","--workspace","/Users/brook/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil","--autoConnect"]}
+$ browserctl --machine zengxiaoximac01 --actor win-port-check pages (titles redacted to count)
+{'connected': True, 'pageCount': 9}
+$ node scripts/probe-mcp.mjs
+SSH MCP initialize/listTools/status/fileInventory/lease gate passed; browser approval not claimed.
+rc=0

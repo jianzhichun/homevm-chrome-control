@@ -1,6 +1,6 @@
 # Chrome 统一控制层
 
-状态：统一入口和 Mac 部署完成；Mac 现有 Chrome 的 CDP 首次授权尚未完成，不能称全自动化已上线。隔离浏览器操作验收与 Mac SSH/MCP 验收分开记录。
+状态：统一入口覆盖 Mac（`zengxiaoximac01`，用户现有 Chrome，autoConnect）与 Windows（`zengxiaoxiwin01`，专用 headless profile，2026-10-10 验收，见下文 Windows 节）。隔离浏览器操作验收与各机 SSH/MCP 验收分开记录。
 
 ## 架构
 
@@ -33,7 +33,7 @@ UID 必须来自最新快照；页面 ID 必须来自 `pages`。文件路径是�
 
 不再注册全局 Claude Code MCP（`chrome-control` 于 2026-10-09 移除：近期会话实际靠 `browserctl call` 即可，MCP 还常连不上）；统一用 `browserctl` CLI，任何会话立即可用。
 
-`status` 只验 daemon，不证明已连接浏览器；`pages` 才真正连接。当前 Mac 首次连接在原生 Allow 弹窗处超时（osascript 无辅助功能权限）。需要在 Mac 正常确认；不改 TCC 数据库、不伪造批准、不重启 Chrome。连接保存在同一个官方 daemon 里；Chrome 或 daemon 断开后可能再次要求 Allow。工具请求 30 秒、外层命令 50 秒超时，不自动重发有副作用的操作。
+`status` 只验 daemon，不证明已连接浏览器；`pages` 才真正连接。2026-10-08 Mac 首次连接曾在原生 Allow 弹窗处超时（osascript 无辅助功能权限）；2026-10-10 复验时已连接，`pages` 真实返回（`evidence/windows/mac-reverify.txt`）。需要在 Mac 正常确认；不改 TCC 数据库、不伪造批准、不重启 Chrome。连接保存在同一个官方 daemon 里；Chrome 或 daemon 断开后可能再次要求 Allow。工具请求 30 秒、外层命令 50 秒超时，不自动重发有副作用的操作。
 
 ## 下载与能力边界
 
@@ -45,9 +45,9 @@ DOM、iframe 快照、真实鼠标键盘输入、网页文件上传、页面截�
 
 ## 部署与运行
 
-代码：homevm `workspace/chrome-control`；Mac `/Users/brook/workspace/chrome-control`。入口 `~/bin/browserctl` 链接至版本化项目脚本；目标登记在 `config/targets.json`，当前仅验收该 Mac。
+代码：homevm `workspace/chrome-control`；Mac `/Users/brook/workspace/chrome-control`；Windows `C:\Users\PC\workspace\chrome-control`。入口 `~/bin/browserctl` 链接至版本化项目脚本；目标登记在 `config/targets.json`（怎么到达），主机布局在 `config/hosts.json`（按平台）。
 
-运行 `./apply.sh zengxiaoximac01` 增量部署，不覆盖 node_modules、日志及证据，不删除远端文件。Mac LaunchAgent `cn.imbecile.chrome-control` 在用户登录时启动官方持久 daemon；bootstrap 脚本运行后退出，所以 launchctl 的 `not running` 是引导进程状态，不代表 daemon 停止。没有空转浏览器轮询；daemon 死亡后明确 `browserctl start`，不承诺自动重连授权。
+运行 `./apply.sh <target>` 增量部署（Mac rsync；Windows 走 `scripts/windows/deploy.sh`），不覆盖 node_modules、日志及证据，不删除远端文件。Mac LaunchAgent `cn.imbecile.chrome-control` 在用户登录时启动官方持久 daemon；bootstrap 脚本运行后退出，所以 launchctl 的 `not running` 是引导进程状态，不代表 daemon 停止。没有空转浏览器轮询；daemon 死亡后明确 `browserctl start`，不承诺自动重连授权。
 
 删除部署先在 Mac 正常 `launchctl bootout gui/501/cn.imbecile.chrome-control`，再 `browserctl stop`，最后删除仅本项目的 LaunchAgent、CLI 链接和 MCP 登记。不要关闭用户 Chrome 或删除用户 profile。
 
@@ -57,6 +57,7 @@ DOM、iframe 快照、真实鼠标键盘输入、网页文件上传、页面截�
 npm test
 node scripts/acceptance.mjs       # homevm 独立、无现有登录态的 headless Chrome
 node scripts/probe-mcp.mjs        # Mac SSH/MCP，不要求连接用户浏览器
+node scripts/probe-mcp.mjs zengxiaoxiwin01 'C:\Users\PC\workspace\chrome-control' evidence/windows/mcp.json
 ```
 
 证据：`evidence/isolated-acceptance.json`、`evidence/mac-mcp.json`、`evidence/acceptance-report.json`。隔离验收涵盖可信输入、iframe、上传、截图、实际下载后 hash 和清理；不能替代 Mac 现有 profile 的许可验收。网页权限、网站的验证码/二次认证、外发与签署授权仍遵循正常边界。
@@ -101,3 +102,36 @@ node scripts/probe-mcp.mjs        # Mac SSH/MCP，不要求连接用户浏览器
 - `application/control.mjs`：用例（工具调用、租约、start）。
 - `interfaces/cli.mjs`、`interfaces/mcp.mjs`；homevm 侧 `bin/browserctl`。
 - 部署：`apply.sh <target>` 按 `os` 分派，Windows 走 `scripts/windows/deploy.sh`（tar over ssh、便携 Node、`npm ci`、注册任务）。
+
+### 使用
+
+```sh
+browserctl --machine zengxiaoxiwin01 status        # 只验 daemon
+browserctl --machine zengxiaoxiwin01 start         # = schtasks /Run \chrome-control，等 daemon 就绪
+browserctl --machine zengxiaoxiwin01 --actor me pages
+browserctl --machine zengxiaoxiwin01 --actor me call browser_claim_page '{"pageId":1}'
+browserctl --machine zengxiaoxiwin01 --actor me call navigate_page '{"pageId":1,"type":"url","url":"https://example.com/"}'
+browserctl --machine zengxiaoxiwin01 --actor me call evaluate_script '{"pageId":1,"function":"() => document.title"}'
+```
+
+文件路径用 Windows 路径（`C:\Users\PC\Downloads\…`），文件根是项目目录和 Downloads。专用 profile 初始没有任何登录；需要登录的网站要在这个 profile 里登录一次（它在磁盘上持久，用户 DPAPI 加密）。UA 带 `HeadlessChrome`，有些站会拦。
+
+### 验收（2026-10-10，`evidence/windows/`）
+
+- `acceptance.txt`：targets / status / pages；claim → navigate_page（URL 带 `/a:b/c`）→ evaluate_script 读回标题 `Example Domain`；他人 actor 被租约拦下；release。
+- `mcp.json`：经 SSH 的 MCP stdio，36 个工具、租约拦截、Windows 路径文件盘点。
+- `restart.txt`：`stop` 只结束本 profile 的 7 个 Chrome 进程（研究浏览器 8 个不动）→ `start` 经计划任务恢复；按 profile 杀掉本 Chrome 主进程后，下一次调用由上游自动重启它，page id 前进（1→2），旧租约不会落到新页面上。进程表显示本 Chrome 位于会话 1、`--headless=new --remote-debugging-pipe`、**无任何监听端口**；研究浏览器仍独占 `127.0.0.1:9444`。
+- `mac-reverify.txt`：分层重构部署到 Mac 后 daemon 未重启（pid 不变、参数不变），`pages` 真实连接，`probe-mcp` 通过。
+- `research-browser-*.json`：研究浏览器前后状态。
+
+未测：注销 / 重启后的登录触发器。会打断机主会话（自动登录的物理机），没做。登录触发器与 cdp-serve 是同一种机制，而 `start` 跑的就是同一个任务动作；所以只差“登录事件会不会触发它”这一步没有亲眼验证。
+
+### 风险与边界
+
+- 不碰研究浏览器：不开 TCP 端口，不落进 cdp-serve 的候选端口，按 profile 匹配进程，不按映像名；没改 `C:\win01-cdp` 和 `cdp-serve` 任务。
+- 不碰机主 Chrome：要驱动它（autoConnect 或 Playwright 扩展）需要机主本人同意并在桌面上批准，这一步留给用户；`config/hosts.json` 的 `win32.browser.mode` 改成 `autoConnect` 即可切换。
+- 注销后 daemon 随会话结束，下次登录由任务拉起；daemon 崩溃后需要 `browserctl start`（与 Mac 一致，没有轮询）。
+- SSH 到这台机建立会话本身约 2.9 s，`status` 合计约 4 s，离 hubctl 的 5 s 探测超时不远。
+- VBScript 预计 2027 年起默认关闭，见上文对照。
+- MSYS 会把以 `/` 开头的独立参数改写成 Windows 路径（实测 `/tmp/report.pdf` → `C:/Users/PC/AppData/Local/Temp/report.pdf`）；JSON 参数以 `{` 开头不受影响，`MSYS2_ARG_CONV_EXCL=*` 作为防线保留。
+- 卸载：`schtasks //Delete //TN chrome-control //F`，`browserctl --machine zengxiaoxiwin01 stop`，删除 `C:\Users\PC\workspace\chrome-control` 和 `%LOCALAPPDATA%\chrome-control`，再从 `targets.json` 去掉条目。

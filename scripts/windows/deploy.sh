@@ -22,12 +22,16 @@ if ! remote "test -x \"\$(cygpath -u $(q "$node"))\""; then
 fi
 
 # 2. Code (no deletion of remote files, as on macOS), then locked dependencies.
+# The lockfile resolves to npm.internal, whose CA is in the Windows store but
+# not in Node's bundled list, hence --use-system-ca.
 tar -C "$project" --exclude=node_modules --exclude=.git --exclude=tests --exclude=evidence --exclude=logs --exclude=__pycache__ -czf - . |
   remote "d=\$(cygpath -u $(q "$root")); mkdir -p \"\$d\" && tar -xzf - -C \"\$d\""
-remote "cd \"\$(cygpath -u $(q "$root"))\" && n=\$(cygpath -u $(q "$node")) && \"\$n\" \"\$(dirname \"\$n\")/node_modules/npm/bin/npm-cli.js\" ci --ignore-scripts --no-audit --no-fund"
+# npm's cache and compile cache go to a per-run temp dir that is removed after.
+remote "cd \"\$(cygpath -u $(q "$root"))\" && n=\$(cygpath -u $(q "$node")) && c=\$(mktemp -d) && trap 'rm -rf \"\$c\"' EXIT &&
+  NODE_DISABLE_COMPILE_CACHE=1 \"\$n\" --use-system-ca \"\$(dirname \"\$n\")/node_modules/npm/bin/npm-cli.js\" ci --ignore-scripts --no-audit --no-fund --no-update-notifier --cache \"\$(cygpath -w \"\$c\")\""
 
 # 3. Logon task, rendered here (UTF-16, as schtasks expects) and registered.
-read -r sid user < <(remote 'whoami //user //fo csv //nh' | tr -d '\r"' | awk -F, '{print $2, $1}')
+read -r sid user < <(remote '"$(cygpath -u "$SYSTEMROOT")/System32/whoami.exe" //user //fo csv //nh' | tr -d '\r"' | awk -F, '{print $2, $1}')
 winpath() { tr / '\\' <<<"$1"; }
 python3 -I - "$here/task.xml" "$sid" "$user" "$(winpath "$root")" "$(winpath "$node")" <<'PY' | iconv -f utf-8 -t utf-16 | remote 'cat > "$TEMP/chrome-control.task.xml"'
 import sys

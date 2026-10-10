@@ -1,0 +1,54 @@
+# 2026-10-10T22:07:12Z stop -> verify our Chrome exits -> start via logon task -> pages
+$ browserctl --machine zengxiaoxiwin01 stop
+{"stopped":true}
+$ processes after stop
+{
+    "chromeTotal":  8,
+    "ours":  0,
+    "research":  8,
+    "other":  0,
+    "oursSession":  [
+
+                    ],
+    "oursListeningPorts":  [
+
+                           ],
+    "researchListeningPorts":  [
+                                   "127.0.0.1:9444"
+                               ],
+    "oursBrowserFlags":  {
+
+                         }
+}
+$ browserctl --machine zengxiaoxiwin01 start
+{"running":true,"browserVerified":false,"pid":15848,"socketPath":"\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock","startDate":"2026-10-10T22:07:31.077Z","version":"1.10.1","args":["--no-usage-statistics","--no-performance-crux","--redactNetworkHeaders","--experimentalVision","--workspace","C:\\Users\\PC\\workspace\\chrome-control","--workspace","C:\\Users\\PC\\Downloads","--userDataDir","C:\\Users\\PC\\AppData\\Local\\chrome-control\\profile","--headless","--executablePath","C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"]}
+$ ... pages
+{"content":[{"type":"text","text":"## Pages\n1: about:blank [selected]"}]}
+$ processes after restart
+{
+    "chromeTotal":  15,
+    "ours":  7,
+    "research":  8,
+    "other":  0,
+    "oursSession":  [
+                        1
+                    ],
+    "oursListeningPorts":  [
+
+                           ],
+    "researchListeningPorts":  [
+                                   "127.0.0.1:9444"
+                               ],
+    "oursBrowserFlags":  [
+                             "--user-data-dir=C:\\Users\\PC\\AppData\\Local\\chrome-control\\profile",
+                             "--headless=new",
+                             "--remote-debugging-pipe"
+                         ]
+}
+# 2026-10-10T22:07:56Z kill our browser process (by profile) -> next call relaunches it
+killed chrome-control browser pid 19568 (matched by profile)
+$ ... pages
+{"content":[{"type":"text","text":"Note: the browser was restarted or reconnected since the last call. Page ids have changed. Call list_pages to see open pages.\n## Pages\n2: about:blank [selected]"}]}
+rc=0
+$ ... status (same daemon pid expected)
+{"running":true,"browserVerified":false,"pid":15848,"socketP

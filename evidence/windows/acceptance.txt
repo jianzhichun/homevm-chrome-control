@@ -1,0 +1,40 @@
+$ browserctl targets
+{
+  "zengxiaoximac01": {
+    "ssh": "zengxiaoximac01",
+    "os": "darwin",
+    "node": "/opt/homebrew/bin/node",
+    "root": "/Users/brook/workspace/chrome-control"
+  },
+  "zengxiaoxiwin01": {
+    "ssh": "zengxiaoxiwin01",
+    "os": "win32",
+    "node": "C:/Users/PC/AppData/Local/chrome-control/node-v24.21.0-win-x64/node.exe",
+    "root": "C:/Users/PC/workspace/chrome-control",
+    "env": {
+      "MSYS2_ARG_CONV_EXCL": "*"
+    }
+  }
+}
+
+$ browserctl --machine zengxiaoxiwin01 status
+{"running":true,"browserVerified":false,"pid":12136,"socketPath":"\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock","startDate":"2026-10-10T22:04:41.894Z","version":"1.10.1","args":["--no-usage-statistics","--no-performance-crux","--redactNetworkHeaders","--experimentalVision","--workspace","C:\\Users\\PC\\workspace\\chrome-control","--workspace","C:\\Users\\PC\\Downloads","--userDataDir","C:\\Users\\PC\\AppData\\Local\\chrome-control\\profile","--headless","--executablePath","C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"]}
+
+$ ... pages
+{"content":[{"type":"text","text":"## Pages\n1: about:blank [selected]"}]}
+
+$ ... call browser_claim_page {"pageId":1}
+{"content":[{"type":"text","text":"{\"actor\":\"win-accept\",\"pageId\":1,\"expires\":1791670863292}"}]}
+
+$ ... call navigate_page {"pageId":1,"type":"url","url":"https://example.com/?q=/a:b/c"}
+{"content":[{"type":"text","text":"Successfully navigated to https://example.com/?q=/a:b/c.\n## Pages\n1: Example Domain (https://example.com/?q=/a:b/c) [selected]"}]}
+
+$ ... call evaluate_script {"pageId":1,"function":"() => ({title: document.title, href: location.href, ua: navigator.userAgent})"}
+{"content":[{"type":"text","text":"Script ran on page and returned:\n```json\n{\"title\":\"Example Domain\",\"href\":\"https://example.com/?q=/a:b/c\",\"ua\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36\"}\n```"}]}
+
+$ other actor tries the leased page (must fail)
+{"error":"Claim page 1 with browser_claim_page before using it","approved":false}
+rc=1
+
+$ ... call browser_release_page {"pageId":1}
+{"content":[{"type":"text","text":"{\"released\":1}"}]}

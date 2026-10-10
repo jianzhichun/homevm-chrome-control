@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-10",
+  "machine": "zengxiaoxiwin01",
+  "upstream": {"name": "chrome-devtools-mcp", "version": "1.10.1", "license": "Apache-2.0"},
+  "chromeVersion": "155.0.8059.39",
+  "runtime": "Node v24.21.0 portable (SHA256 158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541 matches nodejs.org SHASUMS256.txt)",
+  "browser": {"profile": "C:\\Users\\PC\\AppData\\Local\\chrome-control\\profile", "headless": true, "transport": "--remote-debugging-pipe", "listeningTcpPorts": []},
+  "daemon": {"ipc": "\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock", "session": 1, "keeper": "Task Scheduler \\chrome-control, LogonTrigger, InteractiveToken, LeastPrivilege, wscript //B launcher"},
+  "verified": {"targetsStatusPages": true, "navigateAndReadTitle": true, "leaseBlocksOtherActor": true, "sshMcp": true, "stopStartViaTask": true, "chromeCrashSelfHeal": true, "macStillWorks": true, "logoffOrRebootSurvival": false},
+  "untouched": {"researchBrowserProfile": "C:\\win01-cdp\\cdp-profile", "researchPort": 9444, "cdpServeTask": true, "ownerChrome": true},
+  "windowsLeftovers": {"npmCache": "removed", "nodeCompileCache": "removed", "taskXmlTemp": "removed", "nodeZip": "removed"}
+}
