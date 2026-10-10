@@ -1,0 +1,25 @@
+{
+  "t": "2026-10-10T22:28:04Z",
+  "tunnel19444_json_version": "Chrome/155.0.8059.39",
+  "windows_processes": {
+    "ours": 7,
+    "research": 8,
+    "other": 0,
+    "oursListeningPorts": [],
+    "researchListeningPorts": [
+      "127.0.0.1:9444"
+    ]
+  },
+  "exit_pool_observation": {
+    "browser": null,
+    "checked_at": "2026-10-10 22:23:58",
+    "execution_host": "zengxiaoxiwin01",
+    "kind": "browser_cdp",
+    "local_port": 19444,
+    "ready": false,
+    "reason": "remote-port-unavailable",
+    "remote_port": null
+  },
+  "exit_pool_note": "not-ready is the exit-pool-check sandbox, not the browser: inside the systemd user unit ssh fails with 'Bad owner or permissions on /etc/ssh/ssh_config.d/10-physical-windows.conf' (root maps to nobody); the same discovery command outside the sandbox returns CDPPORT:9444. Pre-existing since 2026-10-09 08:15; reported to team-lead.",
+  "research_watch_note": "probe:browser firing since 21:39:33Z = research-watch.service PATH lacks ~/bin (FileNotFoundError exit-pool); the probe run with a normal PATH returns ok. Pre-existing; reported to team-lead."
+}

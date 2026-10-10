@@ -122,7 +122,7 @@ browserctl --machine zengxiaoxiwin01 --actor me call evaluate_script '{"pageId":
 - `mcp.json`：经 SSH 的 MCP stdio，36 个工具、租约拦截、Windows 路径文件盘点。
 - `restart.txt`：`stop` 只结束本 profile 的 7 个 Chrome 进程（研究浏览器 8 个不动）→ `start` 经计划任务恢复；按 profile 杀掉本 Chrome 主进程后，下一次调用由上游自动重启它，page id 前进（1→2），旧租约不会落到新页面上。进程表显示本 Chrome 位于会话 1、`--headless=new --remote-debugging-pipe`、**无任何监听端口**；研究浏览器仍独占 `127.0.0.1:9444`。
 - `mac-reverify.txt`：分层重构部署到 Mac 后 daemon 未重启（pid 不变、参数不变），`pages` 真实连接，`probe-mcp` 通过。
-- `research-browser-*.json`：研究浏览器前后状态。
+- `research-browser-*.json`：研究浏览器前后状态。之后 9444 仍只由 cdp-profile 的 Chrome 监听，19444 隧道 `/json/version` 正常。exit-pool 的 `remote-port-unavailable` 和 research-watch 的 `probe:browser` 是两个已有的告警，与本项目无关，已报给 team-lead：前者是 exit-pool-check 的 systemd 沙箱里 ssh 拒绝 `/etc/ssh/ssh_config.d/10-physical-windows.conf`（root 映射成 nobody），后者是 research-watch.service 的 PATH 里没有 `~/bin`。
 
 未测：注销 / 重启后的登录触发器。会打断机主会话（自动登录的物理机），没做。登录触发器与 cdp-serve 是同一种机制，而 `start` 跑的就是同一个任务动作；所以只差“登录事件会不会触发它”这一步没有亲眼验证。
 
