@@ -69,12 +69,35 @@ node scripts/probe-mcp.mjs        # Mac SSH/MCP，不要求连接用户浏览器
 - https://github.com/microsoft/playwright/blob/main/packages/extension/README.md
 
 ## Windows
+## Windows
 
-`zengxiaoxiwin01` 是物理机（不在 `winmcp vms` 的 libvirt VM 列表里）。`wmcp` 已有 Click／Type／Screenshot 等原生 Windows GUI 命令，但尚未装 Chrome DevTools 扩展。
+`zengxiaoxiwin01` 是物理机（WireGuard 10.9.0.99，用户 `PC`，自动登录；SSH 登录 shell 是 MSYS/Git-Bash）。
 
-适配路径：
-1. Daemon 层：Win32 持久进程 + `autoConnect`，复用 `browserctl` 现有模式开关。
-2. 授权：windows-mcp 坐标点击可点 Chrome Allow 确认，与 Mac 需要用户手动操作桌面不同。
-3. hubctl 感知：新增 `zengxiaoxiwin01` 的 browser target 条目，与 Mac 同 `targets.json` 格式。
+### 方案（2026-10-10）
 
-待 zengxiaoxiwin01 能正常 SSH 连上后实施。不在此次验收范围内。
+| 问题 | 选择 | 理由 |
+| --- | --- | --- |
+| 驱动哪个 Chrome | **专用 profile** `%LOCALAPPDATA%\chrome-control\profile`，headless | 机主日常 Chrome 不碰。驱动它要机主在 chrome://inspect 开开关，并在每次 daemon 连接时点 Allow；用 wmcp 代点等于伪造批准，这是用户的决定，不由本层做。研究浏览器 `C:\win01-cdp\cdp-profile` 也不碰、不复用。headless 是为了不在机主桌面上弹窗。 |
+| 浏览器引擎 | 同 Mac，官方 chrome-devtools-mcp 1.10.1 的持久 daemon，模式改为启动 Chrome：`--userDataDir … --headless --executablePath …` | 上游自己用 `--remote-debugging-pipe` 启动并持有 Chrome，Chrome 崩了下次调用自动重启；工具目录与 Mac 一致（36 个），不自写 CDP。 |
+| 端口 | **不开 TCP 端口，也就无需发布** | Chrome 走 pipe；daemon 走用户命名管道 `\\.\pipe\chrome-devtools-mcp-cc001-PC\server.sock`（上游 Windows 实现）。所以重启后随机的排除端口段与它无关，也不会落进 cdp-serve 的候选端口（9444/8666/9999/7333/8443/8888/9000/9111）被它误认或误杀。 |
+| 常驻 | 计划任务 `\chrome-control`：登录触发器、InteractiveToken、LeastPrivilege；动作 `wscript.exe launch.vbs <node> <cli>`，以 SW_HIDE 跑 `cli.mjs service boot` | 必须在交互登录会话里起 Chrome：SSH 会话（密钥登录）拿不到用户 DPAPI 密钥，Chrome 无法保存登录 cookie，且 SSH 断开时会话进程可能被回收。wscript 是 GUI 子系统，不闪控制台（同 cdp-serve 已验证的做法）；上游 daemon 再以 `windowsHide` 分离启动。不加 5 分钟轮询，语义与 Mac LaunchAgent 一致：死了就 `browserctl start`，它在 Windows 上等于 `schtasks /Run` 再等 daemon 就绪。 |
+| 租约 | 不变：同 Mac，`%LOCALAPPDATA%\chrome-control\runtime\leases\<daemon pid>`，15 分钟 | 领域层与平台无关。 |
+| Node | 官方便携 zip v24.21.0 LTS，SHA256 对 SHASUMS256.txt 校验，装到 `%LOCALAPPDATA%\chrome-control\node-v24.21.0-win-x64` | 不跑 MSI/UAC、不改系统 PATH。 |
+| 参数转义 | `targets.json` 给 Windows 目标加 `env: MSYS2_ARG_CONV_EXCL=*`，browserctl 以 `env K=V …` 前置 | 防止 Git-Bash 把 JSON 参数里的 `/…` 当路径改写。 |
+
+### 现成工具对照（不重复造轮子）
+
+- **chrome-devtools-mcp（Google，Apache-2.0）**：采用。已原生支持 Windows 命名管道 daemon、pipe 启动、autoConnect；与 Mac 同一套工具和租约。
+- **Playwright MCP `--extension`（Microsoft）**：免逐次 Allow 地接管机主现有 Chrome，但要在机主 Chrome 里装扩展、配 token，等于动机主浏览器，留给用户决定；其托管浏览器模式与上面重复，且工具 schema 与 Mac 不一致。
+- **mcp-chrome（hangwin）/ BrowserMCP**：同样靠机主 Chrome 里的扩展＋native messaging；前者 2026-01 后无提交且有 Windows stdio 问题报告，后者 2025-04 后停更。不采用。
+- **chrome-devtools-mcp-persistent-bridge（esmaesx）**：思路相同（Windows 持久 daemon＋UIA 点 Allow），但 0 star、绑 Codex；只借鉴“交互用户、LeastPrivilege、无 TCP 监听”这几条。
+- **常驻**：WinSW / Servy / Shawl / NSSM 都是 session 0 服务，要用户密码才能以本人身份跑，且拿不到交互会话的 DPAPI；pm2 在 Windows 无开机自启。用系统自带计划任务（本机 cdp-serve 已验证同一做法）。VBScript 预计 2027 年起默认关闭，届时 cdp-serve 与本任务一起改用 `conhost.exe --headless`。
+
+### 代码分层
+
+- `domain/host-profile.mjs`：纯逻辑，按平台规格算 runtime、文件根、daemon 参数。
+- `config/hosts.json`：darwin / win32 两份主机规格（数据，不含逻辑）。
+- `adapters/host.mjs`：读规格、组装当前主机的 daemon、文件层、启动器；`adapters/logon-task.mjs`：Windows 计划任务启动器。
+- `application/control.mjs`：用例（工具调用、租约、start）。
+- `interfaces/cli.mjs`、`interfaces/mcp.mjs`；homevm 侧 `bin/browserctl`。
+- 部署：`apply.sh <target>` 按 `os` 分派，Windows 走 `scripts/windows/deploy.sh`（tar over ssh、便携 Node、`npm ci`、注册任务）。

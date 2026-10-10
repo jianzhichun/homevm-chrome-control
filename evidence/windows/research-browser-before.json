@@ -1,0 +1,34 @@
+{
+ "capability_id": "zengxiaoxiwin01-browser",
+ "config": {
+  "capability_id": "zengxiaoxiwin01-browser",
+  "execution_host": "zengxiaoxiwin01",
+  "kind": "browser_cdp",
+  "local_tunnel_port": 19444,
+  "port_discovery": {
+   "kind": "ssh_file",
+   "path": "C:\\win01-cdp\\cdp-port"
+  },
+  "profile_root": "C:\\win01-cdp\\cdp-profile"
+ },
+ "enabled": true,
+ "exit_health": "ok",
+ "exit_id": "zengxiaoxiwin01",
+ "exit_ip": "90.208.248.163",
+ "exit_reason": "",
+ "generation": 1,
+ "instance_id": "465f7150b91a455e8f642674dbd1788f",
+ "kind": "browser_cdp",
+ "observation": {
+  "browser": "Chrome/155.0.8059.39",
+  "checked_at": "2026-10-10 21:50:53",
+  "execution_host": "zengxiaoxiwin01",
+  "kind": "browser_cdp",
+  "local_port": 19444,
+  "ready": true,
+  "reason": null,
+  "remote_port": 9444
+ },
+ "ssh_host": "zengxiaoxiwin01",
+ "state": "ok"
+}
