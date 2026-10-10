@@ -1,0 +1,27 @@
+{
+  "darwin": {
+    "runtime": "{home}/Library/Caches/chrome-control/runtime",
+    "tmp": "{home}/tmp/chrome-control",
+    "roots": ["{home}/Downloads", "{home}/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil"],
+    "browser": { "mode": "autoConnect" },
+    "starter": { "kind": "direct" }
+  },
+  "win32": {
+    "runtime": "{LOCALAPPDATA}/chrome-control/runtime",
+    "roots": ["{home}/Downloads"],
+    "browser": {
+      "mode": "dedicated",
+      "userDataDir": "{LOCALAPPDATA}/chrome-control/profile",
+      "executablePath": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+      "headless": true
+    },
+    "starter": { "kind": "logonTask", "name": "chrome-control" }
+  },
+  "linux": {
+    "runtime": "{home}/.cache/chrome-control/runtime",
+    "tmp": "{home}/tmp/chrome-control",
+    "roots": ["{home}/Downloads"],
+    "browser": { "mode": "isolated", "executablePath": "/usr/bin/google-chrome" },
+    "starter": { "kind": "direct" }
+  }
+}

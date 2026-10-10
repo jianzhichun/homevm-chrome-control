@@ -35,7 +35,8 @@ def main():
         if not isinstance(json.loads(args.arguments), dict):
             parser.error("Arguments must be a JSON object")
     target = targets[args.machine]
-    remote = [target["node"], target["root"] + "/interfaces/cli.mjs", args.actor, args.command]
+    env = [f"{key}={value}" for key, value in target.get("env", {}).items()]
+    remote = (["env", *env] if env else []) + [target["node"], target["root"] + "/interfaces/cli.mjs", args.actor, args.command]
     if args.command == "call":
         remote += [args.tool, args.arguments]
     ssh = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", target["ssh"], shlex.join(remote)]

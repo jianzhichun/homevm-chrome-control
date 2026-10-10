@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 process.env.CHROME_CONTROL_RUNTIME = await mkdtemp(join(homedir(), 'tmp/chrome-acceptance-'));
 process.env.CHROME_CONTROL_MODE = 'isolated';
 const { BrowserControl } = await import('../application/control.mjs');
-const { root } = await import('../adapters/daemon.mjs');
+const { root } = await import('../adapters/host.mjs');
 const control = new BrowserControl('isolated-acceptance');
 const evidence = join(root, 'evidence');
 await mkdir(evidence, { recursive: true });

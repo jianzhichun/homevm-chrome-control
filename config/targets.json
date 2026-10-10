@@ -1,7 +1,17 @@
 {
   "zengxiaoximac01": {
     "ssh": "zengxiaoximac01",
+    "os": "darwin",
     "node": "/opt/homebrew/bin/node",
     "root": "/Users/brook/workspace/chrome-control"
+  },
+  "zengxiaoxiwin01": {
+    "ssh": "zengxiaoxiwin01",
+    "os": "win32",
+    "node": "C:/Users/PC/AppData/Local/chrome-control/node-v24.21.0-win-x64/node.exe",
+    "root": "C:/Users/PC/workspace/chrome-control",
+    "env": {
+      "MSYS2_ARG_CONV_EXCL": "*"
+    }
   }
 }

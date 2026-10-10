@@ -1,8 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
-import { OfficialDaemon, root, runtime } from '../adapters/daemon.mjs';
-import { BrowserFiles } from '../adapters/files.mjs';
+import { currentHost, root } from '../adapters/host.mjs';
 import { PageLeases } from '../domain/leases.mjs';
 
 const schema = (properties, required = []) => ({ type: 'object', properties, required, additionalProperties: false });
@@ -18,12 +16,18 @@ const extraTools = [
 const text = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 
 export class BrowserControl {
-  constructor(actor, daemon = new OfficialDaemon(), leaseRoot = join(runtime, 'leases')) {
-    this.daemon = daemon;
+  constructor(actor, host = currentHost(), leaseRoot = join(host.profile.runtime, 'leases')) {
+    this.daemon = host.daemon;
+    this.starter = host.starter;
+    this.files = host.files;
     this.leaseRoot = leaseRoot;
     this.leases = new PageLeases(leaseRoot, actor);
-    this.files = new BrowserFiles([root, join(homedir(), 'Downloads'), join(homedir(), 'Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil')]);
   }
+
+  // Remote start: the host's starter (the daemon itself on macOS, the logon
+  // task on Windows). boot() is the in-session start used by login bootstraps.
+  async start() { return this.starter.start(); }
+  async boot() { return this.daemon.start(); }
 
   async tools() {
     return [...JSON.parse(await readFile(join(root, 'config/tools.json'), 'utf8')), ...extraTools];
