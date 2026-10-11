@@ -25,12 +25,6 @@ try {
     case 'pages': result = await control.pages(profile); break;
     case 'call':
       if (!tool) throw new Error('call requires TOOL and optional JSON arguments');
-      if (profile && profile !== DEDICATED_PROFILE && 'pageId' in JSON.parse(rawArgs || '{}')) {
-        // Page IDs are daemon-scoped; resolve them against the profile's own pages.
-        const listed = await control.pages(profile);
-        const match = listed.pages.find(p => p.pageId === JSON.parse(rawArgs).pageId);
-        if (!match) throw new Error(`pageId not in profile ${profile}; run pages first (unattributed: ${listed.unattributed})`);
-      }
       result = await control.call(tool, JSON.parse(rawArgs || '{}'), profile);
       break;
     case 'mcp': await serve(control); break;

@@ -117,6 +117,14 @@ browserctl --machine zengxiaoxiwin01 --actor me call evaluate_script '{"pageId":
 
 文件路径用 Windows 路径（`C:\Users\PC\Downloads\…`），文件根是项目目录和 Downloads。专用 profile 初始没有任何登录；需要登录的网站要在这个 profile 里登录一次（它在磁盘上持久，用户 DPAPI 加密）。UA 与普通 Chrome 一致（`navigator.userAgent` 和 client-hint brands 都没有 Headless），但 `navigator.webdriver` 为 true（上游默认带 `--enable-automation`），仍可能被识别为自动化。
 
+### 下载腿 v0（2026-10-11，同目录 `download-v0.md`）
+
+`browserctl --machine zengxiaoxiwin01 download <url> --out NAME [--profile DIR] [--timeout N] [--identity NOTE]`：在浏览器机上打开 URL（下载腿的关键是**选对 profile**——CDP 建不了指定 profile 的 target，`new_page` 只会落在上次活动的 profile；因此走交互会话的 URL 转发：写 `%LOCALAPPDATA%\chrome-control\open-request.txt`（chrome 路径/profile 目录/URL 三行）＋ `/Run` 一次性任务 `\chrome-control-open`，由它转发给正在运行的 Chrome。SSH 里直接 spawn chrome.exe 过不去 ProcessSingleton 锁），轮询 Chrome 下载目录里的新完成文件（稳定大小+哈希、无 .crdownload），挪进暂存目录 `Downloads\chrome-control\<NAME>`，返回 `{path, bytes, sha256, final_url, http_status(尽力), profile, identity}`。
+
+homevm 回传：`scripts/pull-download.sh <machine> <remotePath> <dest> <sha256> [--pdf]` —— Windows Git-Bash 没有 rsync，用 ssh 上的 `tail -c` 分块续传，传输完成后校验 sha256（和可选 %PDF- 魔数）才落位。papers-store 的落库是调用方的职责（`~/papers/<编码DOI>/main.pdf`），本层只做暂存与可信搬运。
+
+身份边界：下载腿跑在有 Cambridge 会话的 Chrome profile 里（当前是机主真实 Chrome），不碰 9444 研究浏览器；专用 headless 实例无身份，调用时会被拒绝。会话过期时下载腿拿到的是登录跳转页（超时+诊断信息），此时先跑 `scripts/cambridge-login.mjs` 再重试——流水线接线时按"会话过期单次触发、失败告警等人、不循环"的护栏处理。
+
 ### 机主真实 Chrome（2026-10-11，`evidence/windows/real-chrome/`）
 
 Windows 上新增命名实例 `real`：autoConnect 连机主正在用的 Chrome（两个 profile `Default`=BrookZeng、`Profile 1`=Brook 共属同一浏览器进程，一个 daemon 全都看得见）。前提是在机主 Chrome 的 `chrome://inspect/#remote-debugging` 打开"Allow remote debugging for this browser instance"（一次性 GUI 动作，2026-10-11 用 wmcp 代点完成，机主本人已全权委托本次任务）；之后每个**新的** daemon 客户端首次连接仍会弹一次原生 Allow 对话框，批准后该 daemon 连接持续有效，5 分钟心跳守护它不掉。

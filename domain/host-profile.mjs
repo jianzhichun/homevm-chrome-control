@@ -82,6 +82,16 @@ export class HostProfile {
 
   // Downloads land in the Chrome-configured directory; staging sits inside
   // it, so that directory is what the watch polls.
+  // How this instance opens a URL in one of its profiles of the running
+  // browser (download leg). Config-driven: an interactive one-shot task on
+  // Windows, plain `open` on macOS.
+  get opener() {
+    const o = this.spec.opener || this.spec.browser.opener;
+    if (!o) return undefined;
+    return { ...o, request: o.request ? this.expand(o.request) : undefined,
+             platform: this.platform, executablePath: this.executablePath };
+  }
+
   get stagingWatch() {
     const parts = this.staging.split(/[\\/]/);
     const dir = parts.slice(0, -1).join(this.path.sep);

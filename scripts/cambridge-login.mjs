@@ -22,7 +22,9 @@ import { createHmac } from 'node:crypto';
 const ROOT = 'C:/Users/PC/workspace/chrome-control';
 const RUNTIME = 'C:/Users/PC/AppData/Local/chrome-control/runtime-real';
 const SESSION = 'cc002';
-const ENTRY = 'https://www-sciencedirect-com.ezp.lib.cam.ac.uk/';
+// An article page, not the journal home: the public homepage lives on the
+// same proxied host and would read as "already signed in".
+const ENTRY = 'https://www-sciencedirect-com.ezp.lib.cam.ac.uk/science/article/pii/S0963869522000767';
 const TENANT = '49a50445-bdfa-4b79-ade3-547b4f3986e9';
 
 const user = process.env.CAM_USER;
@@ -175,7 +177,7 @@ const ENTRA = {
 function signedIn(p) {
   const low = (p?.url || '').toLowerCase();
   if (low.includes('microsoftonline.com') || low.includes('/login?')) return false;
-  return low.includes('www-sciencedirect-com.ezp.lib.cam.ac.uk');
+  return low.includes('www-sciencedirect-com.ezp.lib.cam.ac.uk') && low.includes('/science/article/');
 }
 
 // --- 1. daemon up, wait for the Allow approval ---

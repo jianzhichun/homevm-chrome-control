@@ -186,12 +186,13 @@ test('pages parse from list_pages text and route by profile', async t => {
 
 test('download leg: candidate selection, filename safety, pdf magic', async t => {
   const { newFiles, selectCandidate, safeFilename, pdfMagicCheck } = await import('../domain/download.mjs');
-  const before = [{ name: 'old.pdf', bytes: 10, partial: false }];
+  const before = ['old.pdf'];
   const after = [...before,
     { name: 'paper.pdf.crdownload', bytes: 5, partial: true },
     { name: 'paper.pdf', bytes: 900, partial: false },
     { name: 'unrelated.zip', bytes: 1, partial: false }];
   assert.deepEqual(newFiles(before, after).map(f => f.name), ['paper.pdf', 'unrelated.zip']);
+  assert.equal(selectCandidate([]).kind, 'none');
   assert.equal(selectCandidate(newFiles(before, [{ name: 'only.pdf', bytes: 3, partial: false }])).kind, 'single');
   const two = selectCandidate(newFiles(before, after));
   assert.equal(two.kind, 'pdf');

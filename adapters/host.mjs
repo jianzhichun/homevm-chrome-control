@@ -29,7 +29,7 @@ export function hostInstance(name, platform = process.platform, env = process.en
   // `discovered.browser` names the instance that actually serves those
   // profiles through its daemon.
   const profiles = discovered ? new ProfileInventory(discovered.userDataDir) : undefined;
-  return { profile, daemon, starter, profiles, files: new BrowserFiles(profile.roots(root)) };
+  return { profile, daemon, starter, opener: profile.opener, profiles, files: new BrowserFiles(profile.roots(root)) };
 }
 
 export function currentHost(platform = process.platform, env = process.env) {

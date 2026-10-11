@@ -112,6 +112,18 @@ export class BrowserControl {
   async call(name, args = {}, profileDir) {
     const host = this.hostFor(profileDir);
     const control = host === this.host ? this : new BrowserControl(this.actor, host);
+    // Page IDs are daemon-scoped: with a profile target, reject only a pageId
+    // that provably belongs to a DIFFERENT profile of the same browser;
+    // unattributed pages pass (attribution is best-effort history).
+    if (profileDir && profileDir !== DEDICATED_PROFILE && args && Number.isSafeInteger(args.pageId)) {
+      const pages = parsePageLines(await control.daemon.call('list_pages'));
+      const attributed = host.profiles ? attribute(pages, await host.profiles.urlSets()) : pages;
+      const entry = attributed.find(p => p.pageId === args.pageId);
+      if (!entry) throw new Error(`pageId ${args.pageId} not found on the instance serving ${profileDir}`);
+      if (entry.profile && entry.profile !== profileDir) {
+        throw new Error(`pageId ${args.pageId} belongs to profile ${entry.profile}, not ${profileDir}`);
+      }
+    }
     return control._call(name, args);
   }
 

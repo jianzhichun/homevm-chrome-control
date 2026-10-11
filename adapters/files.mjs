@@ -1,4 +1,4 @@
-import { stat, realpath, readdir, rename, mkdir } from 'node:fs/promises';
+import { stat, realpath, readdir, rename, mkdir, writeFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, sep, dirname, basename } from 'node:path';
@@ -33,6 +33,16 @@ export class BrowserFiles {
     if (src === dst) return dst;
     await mkdir(dirname(dst), { recursive: true });
     await rename(src, dst);
+    return dst;
+  }
+
+  // Write bytes into a configured root (staging). Used by the download leg
+  // when a publisher renders the PDF inline and the bytes come through the
+  // page itself instead of Chrome's download pipeline.
+  async writeBuffer(to, buffer) {
+    const dst = await this.path(to);
+    await mkdir(dirname(dst), { recursive: true });
+    await writeFile(dst, buffer);
     return dst;
   }
 

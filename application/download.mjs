@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { openInProfile } from '../adapters/opener.mjs';
-import { newFiles, selectCandidate, safeFilename } from '../domain/download.mjs';
+import { newFiles, selectCandidate, safeFilename, b64StashExpr, b64SliceExpr, pdfMagicCheck } from '../domain/download.mjs';
 import { parsePageLines } from './control.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -26,9 +26,9 @@ export async function downloadArtifact(control, args) {
   const files = host.files;
   const watchDir = host.profile.stagingWatch;
 
+  if (!host.opener) throw new Error(`No opener configured for this instance (${profileDir})`);
   const before = (await files.inventory(watchDir)).files.map(f => f.name);
-  await openInProfile({ platform: host.profile.platform, executablePath: host.profile.executablePath },
-    profileDir, args.url);
+  await openInProfile(host.opener, profileDir, args.url);
 
   const deadline = Date.now() + timeoutMs;
   let chosen;
@@ -47,11 +47,22 @@ export async function downloadArtifact(control, args) {
     chosen = await files.wait(join(watchDir, pick.file.name), Math.max(1, Math.min(25_000, deadline - Date.now())));
     break;
   }
+  let staged;
+  let originalName;
+  let via = 'chrome-download';
   if (!chosen) {
-    throw new Error(`No completed download within ${timeoutMs} ms (watched ${watchDir}); recent: ${lastNames.slice(-6).join(', ')}`);
+    // Publishers that render the PDF inline (Chrome's viewer, no file on
+    // disk) or gate it behind a bot challenge: pull the bytes through the
+    // page itself. The %PDF- magic is checked before anything is written,
+    // so a challenge HTML can never pass as the artifact.
+    const extracted = await extractViaPage(control, host, args.url, timeoutMs);
+    staged = await files.writeBuffer(join(host.profile.staging, filename), extracted.buffer);
+    originalName = filename;
+    via = extracted.via;
+  } else {
+    staged = await files.move(chosen.path, join(host.profile.staging, filename));
+    originalName = chosen.path.split(/[\\/]/).pop();
   }
-
-  const staged = await files.move(chosen.path, join(host.profile.staging, filename));
   const described = await files.describe(staged);
   const http = await httpFacts(control, host, args.url).catch(() => ({}));
   return {
@@ -61,9 +72,37 @@ export async function downloadArtifact(control, args) {
     finalUrl: http.finalUrl || args.url,
     httpStatus: http.status ?? null,
     profile: profileDir,
-    originalName: chosen.path.split(/[\\/]/).pop(),
+    originalName,
+    via,
     identity: args.identity || `Chrome profile ${profileDir} session`,
   };
+}
+
+// The page-side half of inline extraction: stash -> slice -> assemble.
+const SLICE = 1_500_000;
+async function extractViaPage(control, host, url, timeoutMs) {
+  const target = control.host === host ? control : new control.constructor(control.actor, host);
+  const pages = parsePageLines(await target.daemon.call('list_pages'));
+  const marker = url.replace(/[?#].*$/, '');
+  const page = pages.find(p => p.url.startsWith(marker)) || pages.find(p => p.url.includes(hostPart(url)));
+  if (!page) throw new Error(`No completed download and no inline tab found for ${hostPart(url)}`);
+  const ev = async expr => {
+    const r = await target.daemon.call('evaluate_script', { pageId: page.pageId, function: expr });
+    return JSON.parse(r.content?.find(c => c.type === 'text')?.text.match(/```json\n([\s\S]*?)\n```/)[1]);
+  };
+  const stash = await ev(b64StashExpr(url));
+  if (!stash.ok) {
+    throw new Error(`Inline fetch did not return a PDF (content-type ${stash.ct}, ${stash.size} bytes, head: ${stash.head})`);
+  }
+  const chunks = [];
+  for (let off = 0; off < stash.b64len; off += SLICE) {
+    chunks.push(await ev(b64SliceExpr(off, SLICE)));
+  }
+  const buffer = Buffer.from(chunks.join(''), 'base64');
+  if (!pdfMagicCheck(buffer) || buffer.length !== stash.size) {
+    throw new Error(`Inline extraction failed integrity: ${buffer.length} bytes, magic ${buffer.subarray(0, 5).toString('latin1')}`);
+  }
+  return { buffer, via: 'inline-fetch' };
 }
 
 // Best-effort: find the tab that carries this URL and read the download

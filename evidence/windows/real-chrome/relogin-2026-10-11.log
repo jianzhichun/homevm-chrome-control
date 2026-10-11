@@ -1,0 +1,25 @@
+[cambridge-login] waiting for Allow approval (attempt 1) 
+[cambridge-login] waiting for Allow approval (attempt 2) 
+[cambridge-login] waiting for Allow approval (attempt 3) 
+[cambridge-login] waiting for Allow approval (attempt 4) 
+[cambridge-login] waiting for Allow approval (attempt 5) 
+[cambridge-login] waiting for Allow approval (attempt 6) 
+[cambridge-login] waiting for Allow approval (attempt 7) 
+[cambridge-login] pages [{"pageId":1,"label":"运河-哔哩哔哩_bilibili (https://search.bilibili.com/all?vt=64899262&keyword=%E8%BF%90%E6%B2%B3&from_source=websuggest_search&spm_id_from=333.1007&search_source=2) [selected]"},{"pageId":2,"label":"Inspect with Chrome Developer Tools (chrome://inspect/#remote-debugging)"},{"pageId":3,
+[cambridge-login] target page {"pageId":5,"label":"登录到您的帐户 (https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/saml2)"}
+[cambridge-login] navigated to entry 
+[cambridge-login] claimed page 5
+[cambridge-login] round {"round":0,"url":"https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/saml2","title":"登录到您的帐户"}
+[cambridge-login] fill username "filled"
+[cambridge-login] noFido "hidden"
+[cambridge-login] round {"round":1,"url":"https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/saml2","title":"登录到您的帐户"}
+[cambridge-login] fill password "filled"
+[cambridge-login] round {"round":2,"url":"https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/login","title":"登录到您的帐户"}
+[cambridge-login] push prompt; switching to code method 
+[cambridge-login] another-way "clicked"
+[cambridge-login] method "clicked"
+[cambridge-login] round {"round":3,"url":"https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/login","title":"登录到您的帐户"}
+[cambridge-login] fill code "filled"
+[cambridge-login] round {"round":4,"url":"https://login.microsoftonline.com/common/SAS/ProcessAuth","title":"登录到您的帐户"}
+[cambridge-login] kmsi "clicked"
+[cambridge-login] round {"round":5,"url":"https://www-sciencedirect-com.ezp.lib.cam.ac.uk/science/article/pii/S0963869522000767","title":"Practical limits of pulsed thermal NDT: The concept of addit"}
