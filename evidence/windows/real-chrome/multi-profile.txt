@@ -1,0 +1,15 @@
+# Multi-profile live verification (2026-10-11, zengxiaoxiwin01)
+
+## browserctl --machine zengxiaoxiwin01 profiles
+{"profiles":[{"dir":"chrome-control","name":"chrome-control (dedicated headless)","gaia":"","user":"","instance":"default"},{"dir":"Default","name":"BrookZeng","gaia":"brook zeng","user":"brookzeng710@163.com","activeTime":1791719462.463923,"instance":"real"},{"dir":"Profile 1","name":"Brook","gaia":"Brook","user":"no237356x@gmail.com","activeTime":1791714062.249369,"instance":"real"}]}
+
+## browserctl --machine zengxiaoxiwin01 --profile 'Profile 1' pages
+{"profile":"Profile 1","pages":[{"pageId":1,"title":"运河-哔哩哔哩_bilibili","url":"https://search.bilibili.com/all?vt=64899262&keyword=%E8%BF%90%E6%B2%B3&from_source=websuggest_search&spm_id_from=333.1007&search_source=2","profile":"Profile 1","ambiguous":[]},{"pageId":4,"title":"哔哩哔哩 (゜-゜)つロ 干杯~-bilibili","url":"https://www.bilibili.com/","profile":"Profile 1","ambiguous":[]},{"pageId":5,"title":"dev","url":"https://dev.internal/","profile":"Profile 1","ambiguous":[]},{"pageId":6,"title":"【官方歌词 (含闽南语翻译)+全专整轨+官方视觉】蛋堡 - 运河_哔哩哔哩_bilibili","url":"https://www.bilibili.com/video/BV1y8ty6BEhr/?spm_id_from=333.337.search-card.all.click&vd_source=d0f975ce8c502fd72b3f27505a0479c9","profile":"Profile 1","ambiguous":[]},{"pageId":8,"title":"昂","url":"https://ang.internal/","profile":"Profile 1","ambiguous":[]}],"unattributed":3}
+
+## browserctl --machine zengxiaoxiwin01 --profile 'Default' pages
+{"profile":"Default","pages":[],"unattributed":8}
+
+## profile-scoped call roundtrip (claim 6 / evaluate / release 6)
+{"content":[{"type":"text","text":"{\"actor\":\"cc-team\",\"pageId\":6,\"expires\":1791720781992}"}]}
+{"content":[{"type":"text","text":"Script ran on page and returned:\n```json\n\"【官方歌词 (含闽南语翻译)+全专整轨+官方视觉】蛋堡 - 运河_哔哩哔哩_bi\"\n```"}]}
+{"content":[{"type":"text","text":"{\"released\":6}"}]}

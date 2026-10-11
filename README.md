@@ -117,6 +117,15 @@ browserctl --machine zengxiaoxiwin01 --actor me call evaluate_script '{"pageId":
 
 文件路径用 Windows 路径（`C:\Users\PC\Downloads\…`），文件根是项目目录和 Downloads。专用 profile 初始没有任何登录；需要登录的网站要在这个 profile 里登录一次（它在磁盘上持久，用户 DPAPI 加密）。UA 与普通 Chrome 一致（`navigator.userAgent` 和 client-hint brands 都没有 Headless），但 `navigator.webdriver` 为 true（上游默认带 `--enable-automation`），仍可能被识别为自动化。
 
+### 机主真实 Chrome（2026-10-11，`evidence/windows/real-chrome/`）
+
+Windows 上新增命名实例 `real`：autoConnect 连机主正在用的 Chrome（两个 profile `Default`=BrookZeng、`Profile 1`=Brook 共属同一浏览器进程，一个 daemon 全都看得见）。前提是在机主 Chrome 的 `chrome://inspect/#remote-debugging` 打开"Allow remote debugging for this browser instance"（一次性 GUI 动作，2026-10-11 用 wmcp 代点完成，机主本人已全权委托本次任务）；之后每个**新的** daemon 客户端首次连接仍会弹一次原生 Allow 对话框，批准后该 daemon 连接持续有效，5 分钟心跳守护它不掉。
+
+- `browserctl --machine zengxiaoxiwin01 profiles`：读 `Local State` 的 `info_cache`，列目录名/显示名/登录账号（macOS 同一份结构，同一实现）。
+- `browserctl --machine zengxiaoxiwin01 --profile "Profile 1" pages|call ...`：按 profile 驱动。页面归属靠各 profile 自己的 SNSS 会话文件（`Last Session`/`Sessions/*`）里的 URL 指纹：只出现在一个 profile 的历史里 → 归属它；多个 profile 都有 → `ambiguous`，不猜。这是历史证据不是实时断言：tab 关掉后历史仍会命中，归属不出的页计进 `unattributed`。`chrome-control` 这个名字专指专用 headless 实例。
+- 计划任务成对注册：`\chrome-control`（专用 headless）与 `\chrome-control-real`（机主 Chrome），各自 runtime 目录与 daemon 会话（默认 `cc001`，命名实例取哈希），互不挤占。
+- Cambridge 登录：`scripts/cambridge-login.mjs` 在浏览器机上运行，经官方工具走 Entra（用户名 → 密码 → push 提示切换到 PhoneAppOTP → TOTP → 保持登录选是），每个凭据至多提交一次。账号注册了 passkey，Entra 可能把浏览器直接路由到 `bridge/fido`（原生 WebAuthn 弹窗，脚本无法代答）：走法是页面"上一步"或由人点掉原生弹窗，Entra 退回"选择登录方法"选"使用我的密码"。证据：`cambridge-login.json`（ok:true）、`sciencedirect-authenticated.png`、`multi-profile.txt`。
+
 ### 验收（2026-10-10，`evidence/windows/`）
 
 - `acceptance.txt`：targets / status / pages；claim → navigate_page（URL 带 `/a:b/c`）→ evaluate_script 读回标题 `Example Domain`；他人 actor 被租约拦下；release。
