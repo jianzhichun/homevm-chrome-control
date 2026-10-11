@@ -1,4 +1,5 @@
 {
+  "machine": "zengxiaoximac01",
   "tools": 36,
   "sshMcpVerified": true,
   "daemon": {
