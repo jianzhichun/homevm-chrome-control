@@ -1,4 +1,4 @@
-import { stat, realpath, readdir } from 'node:fs/promises';
+import { stat, realpath, readdir, rename, mkdir } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, sep, dirname, basename } from 'node:path';
@@ -23,6 +23,17 @@ export class BrowserFiles {
     const after = await stat(path);
     if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) throw new Error('File changed during verification');
     return { path, bytes: after.size, modified: after.mtime.toISOString(), sha256: hash.digest('hex') };
+  }
+
+  // Move a finished download into staging. Both sides are root-checked so a
+  // crafted name cannot smuggle a path out.
+  async move(from, to) {
+    const src = await this.path(from);
+    const dst = await this.path(to);
+    if (src === dst) return dst;
+    await mkdir(dirname(dst), { recursive: true });
+    await rename(src, dst);
+    return dst;
   }
 
   async inventory(directory) {

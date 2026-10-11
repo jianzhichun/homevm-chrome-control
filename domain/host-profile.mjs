@@ -76,6 +76,18 @@ export class HostProfile {
   get tmp() { return this.spec.tmp ? this.expand(this.spec.tmp) : undefined; }
   get starter() { return this.spec.starter; }
 
+  // Where finished downloads are collected and renamed. Lives inside a
+  // configured file root so the file layer can verify it.
+  get staging() { return this.expand(this.spec.staging); }
+
+  // Downloads land in the Chrome-configured directory; staging sits inside
+  // it, so that directory is what the watch polls.
+  get stagingWatch() {
+    const parts = this.staging.split(/[\\/]/);
+    const dir = parts.slice(0, -1).join(this.path.sep);
+    return dir || this.path.sep;
+  }
+
   // Profile discovery source: the user-facing Chrome's user data dir and the
   // instance that serves it (named instance, or the default browser itself).
   get profiles() {

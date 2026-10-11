@@ -183,3 +183,44 @@ test('pages parse from list_pages text and route by profile', async t => {
   await assert.rejects(control.pages('Ghost'), /Unknown profile directory/);
   assert.equal(DEDICATED_PROFILE, 'chrome-control');
 });
+
+test('download leg: candidate selection, filename safety, pdf magic', async t => {
+  const { newFiles, selectCandidate, safeFilename, pdfMagicCheck } = await import('../domain/download.mjs');
+  const before = [{ name: 'old.pdf', bytes: 10, partial: false }];
+  const after = [...before,
+    { name: 'paper.pdf.crdownload', bytes: 5, partial: true },
+    { name: 'paper.pdf', bytes: 900, partial: false },
+    { name: 'unrelated.zip', bytes: 1, partial: false }];
+  assert.deepEqual(newFiles(before, after).map(f => f.name), ['paper.pdf', 'unrelated.zip']);
+  assert.equal(selectCandidate(newFiles(before, [{ name: 'only.pdf', bytes: 3, partial: false }])).kind, 'single');
+  const two = selectCandidate(newFiles(before, after));
+  assert.equal(two.kind, 'pdf');
+  assert.equal(two.file.name, 'paper.pdf');
+  assert.equal(selectCandidate([{ name: 'a.zip', bytes: 1 }, { name: 'b.zip', bytes: 1 }]).kind, 'ambiguous');
+  assert.equal(safeFilename('../escape.pdf'), 'escape.pdf'); // basename-only, staged by us
+  assert.throws(() => safeFilename('a:b.pdf'), /Unsafe/);
+  assert.equal(safeFilename('C:\\x\\ok name.PDF'), 'ok name.PDF');
+  assert.ok(pdfMagicCheck(Buffer.from('%PDF-1.7 rest')));
+  assert.ok(!pdfMagicCheck(Buffer.from('<html')));
+});
+
+test('download use-case: guard rails before anything touches the browser', async t => {
+  const { safeFilename } = await import('../domain/download.mjs');
+  assert.equal(safeFilename('../escape.pdf'), 'escape.pdf'); // basename-only, staged by us
+  assert.throws(() => safeFilename('a:b.pdf'), /Unsafe/);
+  const { BrowserControl } = await import('../application/control.mjs');
+  const mod = await import('../application/download.mjs');
+  const host = {
+    profile: { runtime: '/tmp/rt', mode: 'autoConnect', platform: 'win32',
+      executablePath: 'C:/chrome.exe', staging: 'C:/Users/PC/Downloads/chrome-control',
+      stagingWatch: 'C:/Users/PC/Downloads', profiles: { userDataDir: '/ud', browser: 'real' } },
+    daemon: { call: async () => ({ content: [] }), status: async () => ({ running: true, pid: 3 }) },
+    starter: { start: async () => ({}) },
+    profiles: { list: async () => [{ dir: 'Profile 1', name: 'Brook' }], urlSets: async () => new Map() },
+    files: {},
+  };
+  const control = new BrowserControl('dl', host, await fixture(t), () => host);
+  const dedicated = { ...host, profile: { ...host.profile, mode: 'dedicated' } };
+  const c2 = new BrowserControl('dl', dedicated, await fixture(t), () => dedicated);
+  await assert.rejects(mod.downloadArtifact(c2, { url: 'https://x.test/a.pdf', filename: 'a.pdf', profile: 'chrome-control' }), /dedicated headless/);
+});

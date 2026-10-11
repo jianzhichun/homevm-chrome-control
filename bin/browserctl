@@ -20,8 +20,11 @@ def main():
     identity = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("TMUX_PANE") or str(os.getppid())
     actor = os.environ.get("CHROME_CONTROL_ACTOR", "client-" + hashlib.sha256(identity.encode()).hexdigest()[:16])
     parser.add_argument("--actor", default=actor)
-    parser.add_argument("--profile", metavar="DIR", help="Chrome profile directory (see: profiles) to target for pages/call")
-    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "profiles", "pages", "call", "mcp"])
+    parser.add_argument("--profile", metavar="DIR", help="Chrome profile directory (see: profiles) to target for pages/call/download")
+    parser.add_argument("--out", metavar="NAME", help="download: name the collected file in staging")
+    parser.add_argument("--timeout", type=int, default=120, help="download: give up after N seconds")
+    parser.add_argument("--identity", help="download: note about whose session the download relies on")
+    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "profiles", "download", "pages", "call", "mcp"])
     parser.add_argument("tool", nargs="?")
     parser.add_argument("arguments", nargs="?", default="{}")
     args = parser.parse_args()
@@ -35,8 +38,13 @@ def main():
             parser.error("call requires TOOL and optional JSON arguments")
         if not isinstance(json.loads(args.arguments), dict):
             parser.error("Arguments must be a JSON object")
-    if args.profile and args.command not in ("pages", "call"):
-        parser.error("--profile applies to pages and call")
+    if args.profile and args.command not in ("pages", "call", "download"):
+        parser.error("--profile applies to pages, call and download")
+    if args.command == "download":
+        if not args.tool:
+            parser.error("download requires a URL")
+        if not args.out:
+            parser.error("download requires --out NAME")
     target = targets[args.machine]
     env = [f"{key}={value}" for key, value in target.get("env", {}).items()]
     if args.profile:
@@ -44,9 +52,19 @@ def main():
     remote = (["env", *env] if env else []) + [target["node"], target["root"] + "/interfaces/cli.mjs", args.actor, args.command]
     if args.command == "call":
         remote += [args.tool, args.arguments]
+    if args.command == "download":
+        # cli.mjs <actor> download <url> <json>: the URL rides in the tool
+        # slot; download options become its JSON arguments.
+        import json as _json
+        remote += [args.tool, _json.dumps({
+            "filename": args.out,
+            "timeoutMs": args.timeout * 1000,
+            **({"identity": args.identity} if getattr(args, "identity", None) else {}),
+        })]
     ssh = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", target["ssh"], shlex.join(remote)]
     try:
-        return subprocess.run(ssh, timeout=None if args.command == "mcp" else 50).returncode
+        ssh_timeout = None if args.command == "mcp" else (args.timeout + 60 if args.command == "download" else 50)
+        return subprocess.run(ssh, timeout=ssh_timeout).returncode
     except subprocess.TimeoutExpired:
         print(json.dumps({"error": "Remote operation exceeded 50 seconds; no retry was sent"}), file=sys.stderr)
         return 1
