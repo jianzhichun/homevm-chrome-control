@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { posix, win32 } from 'node:path';
 
 const BASE_ARGS = ['--no-usage-statistics', '--no-performance-crux', '--redactNetworkHeaders', '--experimentalVision'];
@@ -10,6 +11,11 @@ const MODES = {
 // Pure description of one browser host: where runtime state lives, which
 // directories the file tools may touch, and how the official daemon reaches
 // Chrome. No I/O; adapters/host.mjs feeds it the live platform and env.
+//
+// `spec.browser` is the DEFAULT instance the bare CLI drives. `spec.browsers`
+// optionally names further instances (e.g. the owner's real Chrome next to a
+// dedicated headless one); each is a browser spec plus its own runtime dir
+// and starter, because the daemon sessions must not share pid files.
 export class HostProfile {
   static select(specs, context) {
     const spec = specs[context.platform];
@@ -17,14 +23,39 @@ export class HostProfile {
     return new HostProfile(spec, context);
   }
 
-  constructor(spec, { platform, home, env = {} }) {
+  constructor(spec, { platform, home, env = {}, instance } = {}) {
     this.path = platform === 'win32' ? win32 : posix;
     this.vars = { ...env, home };
     this.spec = spec;
     this.env = env;
+    this.platform = platform;
+    this.home = home;
+    this.instanceName = instance;
     const mode = env.CHROME_CONTROL_MODE || spec.browser.mode;
     if (!MODES[mode]) throw new Error(`Unknown browser mode: ${mode}`);
     this.mode = mode;
+  }
+
+  // A named instance view of this host: same host-level roots and discovery,
+  // but its own browser spec, runtime dir and starter. The daemon session id
+  // must stay hex (upstream requirement) and stable across restarts; the
+  // default keeps its historical name so deployed tasks and sockets survive
+  // the upgrade unchanged.
+  instance(name) {
+    if (!name || name === 'default') return this;
+    const one = this.spec.browsers?.[name];
+    if (!one) throw new Error(`Unknown browser instance: ${name}`);
+    const spec = {
+      ...this.spec, browser: one,
+      runtime: one.runtime || this.spec.runtime,
+      starter: one.starter || this.spec.starter,
+    };
+    return new HostProfile(spec, { platform: this.platform, home: this.home, env: this.env, instance: name });
+  }
+
+  get session() {
+    if (!this.instanceName) return 'cc001';
+    return 'cc' + createHash('sha256').update(this.instanceName).digest('hex').slice(0, 6);
   }
 
   substitute(template, facts = {}) {
@@ -44,6 +75,14 @@ export class HostProfile {
   get runtime() { return this.env.CHROME_CONTROL_RUNTIME || this.expand(this.spec.runtime); }
   get tmp() { return this.spec.tmp ? this.expand(this.spec.tmp) : undefined; }
   get starter() { return this.spec.starter; }
+
+  // Profile discovery source: the user-facing Chrome's user data dir and the
+  // instance that serves it (named instance, or the default browser itself).
+  get profiles() {
+    const p = this.spec.profiles;
+    if (!p) return undefined;
+    return { userDataDir: this.expand(p.userDataDir), browser: p.browser || 'default' };
+  }
 
   roots(root) { return [root, ...this.spec.roots.map(r => this.expand(r))]; }
 

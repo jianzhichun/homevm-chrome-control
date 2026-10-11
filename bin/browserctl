@@ -20,7 +20,8 @@ def main():
     identity = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("TMUX_PANE") or str(os.getppid())
     actor = os.environ.get("CHROME_CONTROL_ACTOR", "client-" + hashlib.sha256(identity.encode()).hexdigest()[:16])
     parser.add_argument("--actor", default=actor)
-    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "pages", "call", "mcp"])
+    parser.add_argument("--profile", metavar="DIR", help="Chrome profile directory (see: profiles) to target for pages/call")
+    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "profiles", "pages", "call", "mcp"])
     parser.add_argument("tool", nargs="?")
     parser.add_argument("arguments", nargs="?", default="{}")
     args = parser.parse_args()
@@ -34,8 +35,12 @@ def main():
             parser.error("call requires TOOL and optional JSON arguments")
         if not isinstance(json.loads(args.arguments), dict):
             parser.error("Arguments must be a JSON object")
+    if args.profile and args.command not in ("pages", "call"):
+        parser.error("--profile applies to pages and call")
     target = targets[args.machine]
     env = [f"{key}={value}" for key, value in target.get("env", {}).items()]
+    if args.profile:
+        env.append(f"CHROME_CONTROL_PROFILE={args.profile}")
     remote = (["env", *env] if env else []) + [target["node"], target["root"] + "/interfaces/cli.mjs", args.actor, args.command]
     if args.command == "call":
         remote += [args.tool, args.arguments]

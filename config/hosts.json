@@ -11,6 +11,10 @@
     },
     "starter": {
       "kind": "direct"
+    },
+    "profiles": {
+      "userDataDir": "{home}/Library/Application Support/Google/Chrome",
+      "browser": "default"
     }
   },
   "win32": {
@@ -28,6 +32,21 @@
     "starter": {
       "kind": "logonTask",
       "name": "chrome-control"
+    },
+    "browsers": {
+      "real": {
+        "mode": "autoConnect",
+        "userDataDir": "{LOCALAPPDATA}/Google/Chrome/User Data",
+        "runtime": "{LOCALAPPDATA}/chrome-control/runtime-real",
+        "starter": {
+          "kind": "logonTask",
+          "name": "chrome-control-real"
+        }
+      }
+    },
+    "profiles": {
+      "userDataDir": "{LOCALAPPDATA}/Google/Chrome/User Data",
+      "browser": "real"
     }
   },
   "linux": {

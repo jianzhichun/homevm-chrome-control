@@ -38,7 +38,7 @@
   <Actions Context="Author">
     <Exec>
       <Command>wscript.exe</Command>
-      <Arguments>//B //Nologo "{root}\scripts\windows\launch.vbs" "{node}" "{root}\interfaces\cli.mjs"</Arguments>
+      <Arguments>//B //Nologo "{root}\scripts\windows\launch.vbs" "{node}" "{root}\interfaces\cli.mjs"{instance}</Arguments>
     </Exec>
   </Actions>
 </Task>

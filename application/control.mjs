@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { currentHost, root } from '../adapters/host.mjs';
+import { hostInstance, root } from '../adapters/host.mjs';
+import { attribute } from '../domain/profiles.mjs';
 import { PageLeases } from '../domain/leases.mjs';
 
 const schema = (properties, required = []) => ({ type: 'object', properties, required, additionalProperties: false });
@@ -15,8 +16,32 @@ const extraTools = [
 ];
 const text = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 
+// The dedicated headless browser is not a profile of the user's Chrome; it
+// is addressed with this pseudo profile directory name.
+export const DEDICATED_PROFILE = 'chrome-control';
+
+// "## Pages\n1: title (url) [selected]" from the official list_pages.
+export function parsePageLines(raw) {
+  const body = typeof raw === 'string' ? raw : raw?.content?.find(c => c.type === 'text')?.text || '';
+  return [...body.matchAll(/^(\d+): (.*)$/gm)].map(m => {
+    const label = m[2].replace(/ \[selected\]$/, '');
+    let url = (label.match(/\((https?:\/\/[^)]*)\)\s*$/) || [])[1] || '';
+    // "2: https://b.test/" is a page with no title: the whole label IS the url.
+    let title;
+    if (!url && /^https?:\/\//.test(label)) { url = label; title = ''; }
+    else if (url) title = label === url ? '' : label.slice(0, label.length - url.length - 3);
+    else title = label;
+    return { pageId: Number(m[1]), title, url };
+  });
+}
+
 export class BrowserControl {
-  constructor(actor, host = currentHost(), leaseRoot = join(host.profile.runtime, 'leases')) {
+  // hostFactory builds sibling instances (the same composition the process
+  // would use); tests substitute their own fakes.
+  constructor(actor, host = hostInstance(), leaseRoot = join(host.profile.runtime, 'leases'), hostFactory = hostInstance) {
+    this.actor = actor;
+    this.host = host;
+    this.hostFactory = hostFactory;
     this.daemon = host.daemon;
     this.starter = host.starter;
     this.files = host.files;
@@ -38,7 +63,59 @@ export class BrowserControl {
     return [...JSON.parse(await readFile(join(root, 'config/tools.json'), 'utf8')), ...extraTools];
   }
 
-  async call(name, args = {}) {
+  // Discover the Chrome profiles of this host: the user-facing browser's
+  // info_cache (directory name, display name, signed-in account) plus the
+  // dedicated pseudo profile when this host has one.
+  async profiles() {
+    const found = [];
+    const serving = this.host.profile.profiles;
+    if (serving && this.host.profiles) {
+      for (const p of await this.host.profiles.list()) found.push({ ...p, instance: serving.browser });
+    }
+    if (this.host.profile.mode === 'dedicated') {
+      found.unshift({ dir: DEDICATED_PROFILE, name: 'chrome-control (dedicated headless)', gaia: '', user: '', instance: 'default' });
+    }
+    return { profiles: found };
+  }
+
+  // A profile directory routes to the browser instance that owns it: the
+  // dedicated pseudo profile to the default instance, a discovered Chrome
+  // profile to the instance hosts.json names as its server.
+  hostFor(profileDir) {
+    if (!profileDir || profileDir === DEDICATED_PROFILE) return this.host;
+    const serving = this.host.profile.profiles;
+    if (!serving || !this.host.profiles) throw new Error(`No profile discovery on this host; cannot route ${profileDir}`);
+    return this.hostFactory(serving.browser);
+  }
+
+  // Pages of one instance, each attributed to its Chrome profile where the
+  // profile's own session files identify them. With a profileDir only that
+  // profile's tabs are returned; the rest are counted, not hidden.
+  async pages(profileDir) {
+    const host = this.hostFor(profileDir);
+    const control = host === this.host ? this : new BrowserControl(this.actor, host);
+    const pages = parsePageLines(await control.daemon.call('list_pages'));
+    if (!profileDir || profileDir === DEDICATED_PROFILE) {
+      return profileDir === DEDICATED_PROFILE
+        ? { profile: profileDir, pages, unattributed: 0 }
+        : { pages };
+    }
+    const inventory = host.profiles;
+    if (!inventory) throw new Error(`No profile discovery on this host; cannot filter ${profileDir}`);
+    const known = (await inventory.list()).map(p => p.dir);
+    if (!known.includes(profileDir)) throw new Error(`Unknown profile directory ${profileDir}; known: ${known.join(', ')}`);
+    const attributed = attribute(pages, await inventory.urlSets());
+    const owned = attributed.filter(p => p.profile === profileDir);
+    return { profile: profileDir, pages: owned, unattributed: attributed.length - owned.length };
+  }
+
+  async call(name, args = {}, profileDir) {
+    const host = this.hostFor(profileDir);
+    const control = host === this.host ? this : new BrowserControl(this.actor, host);
+    return control._call(name, args);
+  }
+
+  async _call(name, args = {}) {
     const tool = (await this.tools()).find(t => t.name === name);
     if (!tool) throw new Error(`Unknown tool: ${name}`);
     for (const key of tool.inputSchema.required || []) {

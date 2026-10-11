@@ -1,6 +1,5 @@
 import { mkdir } from 'node:fs/promises';
 
-const session = 'cc001';
 let upstream;
 
 // Thin adapter over the official chrome-devtools-mcp daemon client. The
@@ -10,6 +9,7 @@ let upstream;
 export class OfficialDaemon {
   constructor(profile, root, facts = async () => ({})) {
     this.profile = profile;
+    this.session = profile.session;
     this.root = root;
     this.facts = facts;
     process.env.XDG_RUNTIME_DIR = profile.runtime;
@@ -30,29 +30,29 @@ export class OfficialDaemon {
     const { startDaemon } = await this.upstream();
     await mkdir(this.profile.runtime, { recursive: true, mode: 0o700 });
     if (this.profile.tmp) await mkdir(this.profile.tmp, { recursive: true, mode: 0o700 });
-    await startDaemon(this.profile.daemonArgs(this.root, await this.facts()), session);
+    await startDaemon(this.profile.daemonArgs(this.root, await this.facts()), this.session);
     return this.status();
   }
 
   async status() {
     const { isDaemonRunning, sendCommand } = await this.upstream();
-    if (!isDaemonRunning(session)) return { running: false, browserVerified: false };
-    const response = await sendCommand({ method: 'status' }, session, 5_000);
+    if (!isDaemonRunning(this.session)) return { running: false, browserVerified: false };
+    const response = await sendCommand({ method: 'status' }, this.session, 5_000);
     if (!response.success) throw new Error(response.error);
     return { running: true, browserVerified: false, ...JSON.parse(response.result) };
   }
 
   async call(name, args) {
     const { isDaemonRunning, sendCommand } = await this.upstream();
-    if (!isDaemonRunning(session)) throw new Error('Daemon not running. Run browserctl start explicitly; no browser is launched implicitly.');
-    const response = await sendCommand({ method: 'invoke_tool', tool: name, args }, session, 30_000);
+    if (!isDaemonRunning(this.session)) throw new Error('Daemon not running. Run browserctl start explicitly; no browser is launched implicitly.');
+    const response = await sendCommand({ method: 'invoke_tool', tool: name, args }, this.session, 30_000);
     if (!response.success) throw new Error(response.error);
     return JSON.parse(response.result);
   }
 
   async stop() {
     const { stopDaemon } = await this.upstream();
-    await stopDaemon(session);
+    await stopDaemon(this.session);
     return { stopped: true };
   }
 }

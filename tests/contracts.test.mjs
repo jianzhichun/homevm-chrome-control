@@ -107,3 +107,78 @@ test('boot is a no-op while the daemon answers and starts it otherwise', async t
   await control.boot();
   assert.equal(starts, 1);
 });
+
+test('named browser instances: stable hex sessions, own runtime, autoConnect args', () => {
+  const specs = JSON.parse(readFileSync(new URL('../config/hosts.json', import.meta.url)));
+  const ctx = { platform: 'win32', home: 'C:\\Users\\PC', env: { LOCALAPPDATA: 'C:\\Users\\PC\\AppData\\Local' } };
+  const win = HostProfile.select(specs, ctx);
+  assert.equal(win.session, 'cc001');
+  const real = win.instance('real');
+  assert.equal(real.session, win.instance('real').session);
+  assert.match(real.session, /^cc[a-f0-9]{6}$/);
+  assert.notEqual(real.session, 'cc001');
+  assert.match(real.runtime, /runtime-real$/);
+  const args = real.daemonArgs('C:\\x');
+  assert.ok(args.includes('--autoConnect'));
+  assert.ok(!args.includes('--userDataDir') && !args.includes('--headless'));
+  assert.equal(real.starter.name, 'chrome-control-real');
+  assert.throws(() => win.instance('nope'), /Unknown browser instance/);
+  const mac = HostProfile.select(specs, { platform: 'darwin', home: '/Users/brook' });
+  assert.equal(mac.instance('default'), mac);
+  assert.throws(() => mac.instance('real'), /Unknown browser instance/);
+  assert.deepEqual(mac.profiles.userDataDir, '/Users/brook/Library/Application Support/Google/Chrome');
+  assert.deepEqual(win.profiles.userDataDir, 'C:\\Users\\PC\\AppData\\Local\\Google\\Chrome\\User Data');
+});
+
+test('profile discovery and SNSS attribution', async t => {
+  const { fromLocalState, urlsFromSnss, attribute, normalizeUrl } = await import('../domain/profiles.mjs');
+  const state = JSON.stringify({ profile: { info_cache: {
+    'Profile 1': { name: 'Brook', gaia_name: 'Brook', user_name: 'a@gmail.com', active_time: 20 },
+    Default: { name: 'BrookZeng', gaia_name: 'brook zeng', user_name: 'b@163.com', active_time: 10 },
+  } } });
+  assert.deepEqual(fromLocalState(state).map(p => p.dir), ['Profile 1', 'Default']);
+  assert.equal(fromLocalState('{}').length, 0);
+  const snss = Buffer.from('junk\x01https://example.com/a?x=1&y=2\x02more\x01https://portal.org/page\x00');
+  const urls = [...urlsFromSnss(snss)];
+  assert.deepEqual(urls, ['https://example.com/a', 'https://portal.org/page']);
+  assert.equal(normalizeUrl('https://x.test/p/?q=1#f'), 'https://x.test/p');
+  const sets = new Map([['Profile 1', new Set(urls)], ['Default', new Set(['https://portal.org/page', 'https://example.com/z'])]]);
+  const out = attribute([{ pageId: 1, url: 'https://example.com/a?x=9' }, { pageId: 2, url: 'https://portal.org/page' }, { pageId: 3, url: '' }], sets);
+  assert.equal(out[0].profile, 'Profile 1');
+  assert.deepEqual(out[1].ambiguous, ['Profile 1', 'Default']);
+  assert.equal(out[1].profile, null);
+  assert.equal(out[2].profile, null);
+});
+
+test('pages parse from list_pages text and route by profile', async t => {
+  const { parsePageLines, DEDICATED_PROFILE } = await import('../application/control.mjs');
+  const raw = { content: [{ type: 'text', text: '## Pages\n1: Title (https://a.test/x) [selected]\n2: https://b.test/\n3: no url here' }] };
+  assert.deepEqual(parsePageLines(raw), [
+    { pageId: 1, title: 'Title', url: 'https://a.test/x' },
+    { pageId: 2, title: '', url: 'https://b.test/' },
+    { pageId: 3, title: 'no url here', url: '' },
+  ]);
+
+  const seen = [];
+  // hosts.json carries profile discovery at host level; `browser` names the
+  // instance whose daemon serves those profiles.
+  const inventory = tag => ({
+    list: async () => [{ dir: 'Profile 1', name: 'Brook' }],
+    urlSets: async () => new Map(tag === 'real' ? [['Profile 1', new Set(['https://a.test/x'])]] : []),
+  });
+  const makeHost = tag => ({
+    profile: { runtime: `/tmp/rt-${tag}`, mode: tag === 'real' ? 'autoConnect' : 'dedicated',
+      profiles: { userDataDir: '/ud', browser: 'real' } },
+    daemon: { call: async (n, a) => { seen.push([tag, n, a]); return {}; }, status: async () => ({ running: true, pid: 7 }) },
+    starter: { start: async () => ({}) },
+    profiles: inventory(tag),
+    files: {},
+  });
+  const real = makeHost('real');
+  const control = new BrowserControl('t', makeHost('default'), await fixture(t), () => real);
+  const routed = await control.pages('Profile 1');
+  assert.equal(routed.profile, 'Profile 1');
+  assert.equal(seen[0][0], 'real');
+  await assert.rejects(control.pages('Ghost'), /Unknown profile directory/);
+  assert.equal(DEDICATED_PROFILE, 'chrome-control');
+});
