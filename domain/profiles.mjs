@@ -41,6 +41,10 @@ export function attribute(pages, urlSets) {
   return pages.map(p => {
     const url = normalizeUrl(p.url || '');
     const hits = url ? [...urlSets].filter(([, set]) => set.has(url)).map(([dir]) => dir) : [];
-    return { ...p, profile: hits.length === 1 ? hits[0] : null, ambiguous: hits };
+    // Exactly one profile having the URL in its session history is the
+    // attribution; several is a guess we refuse to make. Note the evidence
+    // is session history, so a profile that CLOSED the tab keeps matching
+    // until its session files are rewritten.
+    return { ...p, profile: hits.length === 1 ? hits[0] : null, ambiguous: hits.length > 1 ? hits : [] };
   });
 }

@@ -17,7 +17,9 @@ export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // the long-running daemon process manages when no name is passed.
 export function hostInstance(name, platform = process.platform, env = process.env) {
   const specs = JSON.parse(readFileSync(join(root, 'config/hosts.json'), 'utf8'));
-  const instance = name || env.CHROME_CONTROL_INSTANCE;
+  // launch.vbs passes the instance as an schtasks argument; cmd's `set X= real`
+  // keeps the leading space, so trim before lookup.
+  const instance = (name || env.CHROME_CONTROL_INSTANCE || '').trim();
   const profile = HostProfile.select(specs, { platform, home: homedir(), env }).instance(instance);
   const facts = profile.wants('chromeMajor') ? async () => ({ chromeMajor: await windowsChromeMajor(profile.executablePath) }) : undefined;
   const daemon = new OfficialDaemon(profile, root, facts);

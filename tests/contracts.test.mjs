@@ -145,6 +145,7 @@ test('profile discovery and SNSS attribution', async t => {
   const sets = new Map([['Profile 1', new Set(urls)], ['Default', new Set(['https://portal.org/page', 'https://example.com/z'])]]);
   const out = attribute([{ pageId: 1, url: 'https://example.com/a?x=9' }, { pageId: 2, url: 'https://portal.org/page' }, { pageId: 3, url: '' }], sets);
   assert.equal(out[0].profile, 'Profile 1');
+  assert.deepEqual(out[0].ambiguous, []);
   assert.deepEqual(out[1].ambiguous, ['Profile 1', 'Default']);
   assert.equal(out[1].profile, null);
   assert.equal(out[2].profile, null);
