@@ -6,3 +6,7 @@ $ browserctl --machine zengxiaoximac01 --actor win-port-check pages (titles reda
 $ node scripts/probe-mcp.mjs
 SSH MCP initialize/listTools/status/fileInventory/lease gate passed; browser approval not claimed.
 rc=0
+# 2026-10-11 08:39:23 Mac re-verification after the gap 2/3 change (shared code)
+{'running': True, 'pid': 1723, 'args': ['--no-usage-statistics', '--no-performance-crux', '--redactNetworkHeaders', '--experimentalVision', '--workspace', '/Users/brook/workspace/chrome-control', '--workspace', '/Users/brook/Downloads', '--workspace', '/Users/brook/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil', '--autoConnect']}
+{'connected': True, 'pageCount': 7}
+SSH MCP initialize/listTools/status/fileInventory/lease gate passed; browser approval not claimed.

@@ -25,9 +25,14 @@ export class BrowserControl {
   }
 
   // Remote start: the host's starter (the daemon itself on macOS, the logon
-  // task on Windows). boot() is the in-session start used by login bootstraps.
+  // task on Windows). boot() is the in-session start run by login bootstraps
+  // and by the Windows task every 5 minutes: it does nothing (and prints
+  // nothing) while the daemon answers, so repeated ticks are no-ops.
   async start() { return this.starter.start(); }
-  async boot() { return this.daemon.start(); }
+  async boot() {
+    const current = await this.daemon.status().catch(() => ({ running: false }));
+    return current.running ? undefined : this.daemon.start();
+  }
 
   async tools() {
     return [...JSON.parse(await readFile(join(root, 'config/tools.json'), 'utf8')), ...extraTools];

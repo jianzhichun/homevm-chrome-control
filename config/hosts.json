@@ -2,26 +2,46 @@
   "darwin": {
     "runtime": "{home}/Library/Caches/chrome-control/runtime",
     "tmp": "{home}/tmp/chrome-control",
-    "roots": ["{home}/Downloads", "{home}/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil"],
-    "browser": { "mode": "autoConnect" },
-    "starter": { "kind": "direct" }
+    "roots": [
+      "{home}/Downloads",
+      "{home}/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil"
+    ],
+    "browser": {
+      "mode": "autoConnect"
+    },
+    "starter": {
+      "kind": "direct"
+    }
   },
   "win32": {
     "runtime": "{LOCALAPPDATA}/chrome-control/runtime",
-    "roots": ["{home}/Downloads"],
+    "roots": [
+      "{home}/Downloads"
+    ],
     "browser": {
       "mode": "dedicated",
       "userDataDir": "{LOCALAPPDATA}/chrome-control/profile",
       "executablePath": "C:/Program Files/Google/Chrome/Application/chrome.exe",
-      "headless": true
+      "headless": true,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chromeMajor}.0.0.0 Safari/537.36"
     },
-    "starter": { "kind": "logonTask", "name": "chrome-control" }
+    "starter": {
+      "kind": "logonTask",
+      "name": "chrome-control"
+    }
   },
   "linux": {
     "runtime": "{home}/.cache/chrome-control/runtime",
     "tmp": "{home}/tmp/chrome-control",
-    "roots": ["{home}/Downloads"],
-    "browser": { "mode": "isolated", "executablePath": "/usr/bin/google-chrome" },
-    "starter": { "kind": "direct" }
+    "roots": [
+      "{home}/Downloads"
+    ],
+    "browser": {
+      "mode": "isolated",
+      "executablePath": "/usr/bin/google-chrome"
+    },
+    "starter": {
+      "kind": "direct"
+    }
   }
 }

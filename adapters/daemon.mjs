@@ -8,9 +8,10 @@ let upstream;
 // (named pipe on Windows), so the environment is fixed here before the first
 // call and the spawned daemon inherits it.
 export class OfficialDaemon {
-  constructor(profile, root) {
+  constructor(profile, root, facts = async () => ({})) {
     this.profile = profile;
     this.root = root;
+    this.facts = facts;
     process.env.XDG_RUNTIME_DIR = profile.runtime;
     if (profile.tmp) process.env.TMPDIR = profile.tmp;
     process.env.CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS = '1';
@@ -29,7 +30,7 @@ export class OfficialDaemon {
     const { startDaemon } = await this.upstream();
     await mkdir(this.profile.runtime, { recursive: true, mode: 0o700 });
     if (this.profile.tmp) await mkdir(this.profile.tmp, { recursive: true, mode: 0o700 });
-    await startDaemon(this.profile.daemonArgs(this.root), session);
+    await startDaemon(this.profile.daemonArgs(this.root, await this.facts()), session);
     return this.status();
   }
 

@@ -1,0 +1,28 @@
+# 2026-10-11 08:19:38 gap 3: daemon dead -> 5-min task tick revives it (no manual start)
+# 08:19:32Z browserctl stop (graceful); the \chrome-control TimeTrigger (PT5M) tick must boot it again.
+08:20:10
+{"running":true,"browserVerified":false,"pid":36764,"socketPath":"\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock","startDate":"2026-10-11T08:20:03.542Z"
+
+# 2026-10-11 08:21:25 hard kill (Stop-Process -Force) of our daemon, then wait for the next tick
+hard-killed chrome-control daemon pid 36764 (matched by daemon.js + chrome-control\profile in its command line)
+$ processes 5 s after kill
+{"ours":0,"research":9,"other":0,"oursListeningPorts":[],"researchListeningPorts":["127.0.0.1:9444"],"researchMainPid":25208,"researchMainStarted":"2026-10-10T22:48:42","ourDaemonPids":[null]}
+
+$ status right after kill
+{"running":false,"browserVerified":false}
+$ status at 08:25:22 (no manual start)
+{"running":true,"browserVerified":false,"pid":29388,"socketPath":"\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock","startDate":"2026-10-11T08:25:03.452Z","version"
+$ pages
+{"content":[{"type":"text","text":"## Pages\n1: about:blank [selected]"}]}
+$ startup.log tail (boot prints only on real starts)
+{"running":true,"browserVerified":false,"pid":15848,"socketPath":"\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock
+{"running":true,"browserVerified":false,"pid":36764,"socketPath":"\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock
+{"running":true,"browserVerified":false,"pid":29388,"socketPath":"\\\\.\\pipe\\chrome-devtools-mcp-cc001-PC\\server.sock
+
+
+# 2026-10-11 08:37:01 no-op ticks: task keeps running every 5 min, daemon pid unchanged, startup.log unchanged
+chrome-control: last=2026-10-11T09:35:01 next=2026-10-11T09:40:00 result=0 triggers=MSFT_TaskLogonTrigger rep=;MSFT_TaskTimeTrigger rep=PT5M
+{"running":true,"browserVerified":false,"pid":29388,"socketP
+$ startup.log line count / last line
+4
+{"running":true,"browserVerified":false,"pid":29388,"socketPath":"\\\\

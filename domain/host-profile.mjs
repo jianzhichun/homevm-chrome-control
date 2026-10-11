@@ -27,12 +27,19 @@ export class HostProfile {
     this.mode = mode;
   }
 
-  expand(template) {
-    return this.path.resolve(template.replace(/\{(\w+)\}/g, (_, name) => {
-      if (!this.vars[name]) throw new Error(`Host profile variable ${name} is not set`);
-      return this.vars[name];
-    }));
+  substitute(template, facts = {}) {
+    const vars = { ...this.vars, ...facts };
+    return template.replace(/\{(\w+)\}/g, (_, name) => {
+      if (!vars[name]) throw new Error(`Host profile variable ${name} is not set`);
+      return String(vars[name]);
+    });
   }
+
+  expand(template) { return this.path.resolve(this.substitute(template)); }
+
+  // Facts only the live machine knows (e.g. chromeMajor, read from chrome.exe).
+  wants(fact) { return Object.values(this.spec.browser).some(v => typeof v === 'string' && v.includes(`{${fact}}`)); }
+  get executablePath() { return this.spec.browser.executablePath && this.expand(this.spec.browser.executablePath); }
 
   get runtime() { return this.env.CHROME_CONTROL_RUNTIME || this.expand(this.spec.runtime); }
   get tmp() { return this.spec.tmp ? this.expand(this.spec.tmp) : undefined; }
@@ -40,9 +47,12 @@ export class HostProfile {
 
   roots(root) { return [root, ...this.spec.roots.map(r => this.expand(r))]; }
 
-  daemonArgs(root) {
+  daemonArgs(root, facts = {}) {
     const browser = Object.fromEntries(Object.entries(this.spec.browser)
       .map(([key, value]) => [key, typeof value === 'string' && /Path|Dir$/.test(key) ? this.expand(value) : value]));
-    return [...BASE_ARGS, ...this.roots(root).flatMap(w => ['--workspace', w]), ...MODES[this.mode](browser)];
+    // A headed UA for the same Chrome version: headless otherwise announces
+    // itself as "HeadlessChrome/<v>" and some publishers refuse it.
+    const ua = browser.userAgent ? [`--chromeArg=--user-agent=${this.substitute(browser.userAgent, facts)}`] : [];
+    return [...BASE_ARGS, ...this.roots(root).flatMap(w => ['--workspace', w]), ...MODES[this.mode](browser), ...ua];
   }
 }

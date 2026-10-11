@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-11",
+  "before": {
+    "research": 9,
+    "researchListeningPorts": [
+      "127.0.0.1:9444"
+    ],
+    "researchMainPid": 25208,
+    "researchMainStarted": "2026-10-10T22:48:42"
+  },
+  "after": {
+    "research": 9,
+    "researchListeningPorts": [
+      "127.0.0.1:9444"
+    ],
+    "researchMainPid": 25208,
+    "researchMainStarted": "2026-10-10T22:48:42"
+  },
+  "researchChromeUntouched": true,
+  "ours_after": {
+    "ours": 7,
+    "oursListeningPorts": [],
+    "ourDaemonPids": [
+      29388
+    ]
+  },
+  "homevm_tunnel_note": "research-cdp-tunnel@zengxiaoxiwin01-browser dropped at 08:13:54 and 08:30:39Z ('server 10.9.0.99 not responding'), restarted 08:18:58 and 08:35:45; research-watch ok again 08:36:41. Same pattern 39 times since 2026-10-10 12:00 (every 10-30 min overnight from 04:07), before this change was deployed at 08:18; the Windows research Chrome itself never restarted."
+}

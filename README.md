@@ -81,7 +81,8 @@ node scripts/probe-mcp.mjs zengxiaoxiwin01 'C:\Users\PC\workspace\chrome-control
 | 驱动哪个 Chrome | **专用 profile** `%LOCALAPPDATA%\chrome-control\profile`，headless | 机主日常 Chrome 不碰。驱动它要机主在 chrome://inspect 开开关，并在每次 daemon 连接时点 Allow；用 wmcp 代点等于伪造批准，这是用户的决定，不由本层做。研究浏览器 `C:\win01-cdp\cdp-profile` 也不碰、不复用。headless 是为了不在机主桌面上弹窗。 |
 | 浏览器引擎 | 同 Mac，官方 chrome-devtools-mcp 1.10.1 的持久 daemon，模式改为启动 Chrome：`--userDataDir … --headless --executablePath …` | 上游自己用 `--remote-debugging-pipe` 启动并持有 Chrome，Chrome 崩了下次调用自动重启；工具目录与 Mac 一致（36 个），不自写 CDP。 |
 | 端口 | **不开 TCP 端口，也就无需发布** | Chrome 走 pipe；daemon 走用户命名管道 `\\.\pipe\chrome-devtools-mcp-cc001-PC\server.sock`（上游 Windows 实现）。所以重启后随机的排除端口段与它无关，也不会落进 cdp-serve 的候选端口（9444/8666/9999/7333/8443/8888/9000/9111）被它误认或误杀。 |
-| 常驻 | 计划任务 `\chrome-control`：登录触发器、InteractiveToken、LeastPrivilege；动作 `wscript.exe launch.vbs <node> <cli>`，以 SW_HIDE 跑 `cli.mjs service boot` | 必须在交互登录会话里起 Chrome：SSH 会话（密钥登录）拿不到用户 DPAPI 密钥，Chrome 无法保存登录 cookie，且 SSH 断开时会话进程可能被回收。wscript 是 GUI 子系统，不闪控制台（同 cdp-serve 已验证的做法）；上游 daemon 再以 `windowsHide` 分离启动。不加 5 分钟轮询，语义与 Mac LaunchAgent 一致：死了就 `browserctl start`，它在 Windows 上等于 `schtasks /Run` 再等 daemon 就绪。 |
+| 常驻 | 计划任务 `\chrome-control`：登录触发器 ＋ 每 5 分钟的时间触发器（TimeTrigger PT5M），InteractiveToken、LeastPrivilege；动作 `wscript.exe //B launch.vbs <node> <cli>`，以 SW_HIDE 跑 `cli.mjs service boot`。boot 幂等：daemon 正常应答时什么都不做，也不写日志 | 必须在交互登录会话里起 Chrome：SSH 会话（密钥登录）拿不到用户 DPAPI 密钥，Chrome 无法保存登录 cookie，且 SSH 断开时会话进程可能被回收。wscript 是 GUI 子系统，不闪控制台（同 cdp-serve）；上游 daemon 再以 `windowsHide` 分离启动。5 分钟心跳放在时间触发器上，没有放在登录触发器的 Repetition 里：后者要等下一次登录事件才开始重复，任务重新注册后到下次登录之间根本不跑（2026-10-11 实测 cdp-serve：NextRunTime 为空，最后一次运行停在 10-10 22:49）。daemon 被杀时，它的 Chrome 随 pipe 关闭一起退出，不会留下占着 profile 锁的孤儿进程。 |
+| UA | `--chromeArg=--user-agent=… Chrome/<major>.0.0.0 …`，major 在 daemon 启动时从 chrome.exe 版本资源读取（`adapters/chrome-version.mjs`） | headless 默认 UA 是 `HeadlessChrome/<v>`，有出版商会拒（研究侧 cdp-serve 已同样处理，参考 a488c241fd06ef15）。读不到版本就不启动（下一次心跳重试），不会退回到 Headless UA。Chrome 更新后，UA 在下一次 daemon 启动时跟上。 |
 | 租约 | 不变：同 Mac，`%LOCALAPPDATA%\chrome-control\runtime\leases\<daemon pid>`，15 分钟 | 领域层与平台无关。 |
 | Node | 官方便携 zip v24.21.0 LTS，SHA256 对 SHASUMS256.txt 校验，装到 `%LOCALAPPDATA%\chrome-control\node-v24.21.0-win-x64` | 不跑 MSI/UAC、不改系统 PATH。 |
 | 参数转义 | `targets.json` 给 Windows 目标加 `env: MSYS2_ARG_CONV_EXCL=*`，browserctl 以 `env K=V …` 前置 | 防止 Git-Bash 把 JSON 参数里的 `/…` 当路径改写。 |
@@ -98,7 +99,7 @@ node scripts/probe-mcp.mjs zengxiaoxiwin01 'C:\Users\PC\workspace\chrome-control
 
 - `domain/host-profile.mjs`：纯逻辑，按平台规格算 runtime、文件根、daemon 参数。
 - `config/hosts.json`：darwin / win32 两份主机规格（数据，不含逻辑）。
-- `adapters/host.mjs`：读规格、组装当前主机的 daemon、文件层、启动器；`adapters/logon-task.mjs`：Windows 计划任务启动器。
+- `adapters/host.mjs`：读规格、组装当前主机的 daemon、文件层、启动器；`adapters/logon-task.mjs`：Windows 计划任务启动器；`adapters/chrome-version.mjs`：从 chrome.exe 读主版本号（UA 用）。
 - `application/control.mjs`：用例（工具调用、租约、start）。
 - `interfaces/cli.mjs`、`interfaces/mcp.mjs`；homevm 侧 `bin/browserctl`。
 - 部署：`apply.sh <target>` 按 `os` 分派，Windows 走 `scripts/windows/deploy.sh`（tar over ssh、便携 Node、`npm ci`、注册任务）。
@@ -114,12 +115,14 @@ browserctl --machine zengxiaoxiwin01 --actor me call navigate_page '{"pageId":1,
 browserctl --machine zengxiaoxiwin01 --actor me call evaluate_script '{"pageId":1,"function":"() => document.title"}'
 ```
 
-文件路径用 Windows 路径（`C:\Users\PC\Downloads\…`），文件根是项目目录和 Downloads。专用 profile 初始没有任何登录；需要登录的网站要在这个 profile 里登录一次（它在磁盘上持久，用户 DPAPI 加密）。UA 带 `HeadlessChrome`，有些站会拦。
+文件路径用 Windows 路径（`C:\Users\PC\Downloads\…`），文件根是项目目录和 Downloads。专用 profile 初始没有任何登录；需要登录的网站要在这个 profile 里登录一次（它在磁盘上持久，用户 DPAPI 加密）。UA 与普通 Chrome 一致（`navigator.userAgent` 和 client-hint brands 都没有 Headless），但 `navigator.webdriver` 为 true（上游默认带 `--enable-automation`），仍可能被识别为自动化。
 
 ### 验收（2026-10-10，`evidence/windows/`）
 
 - `acceptance.txt`：targets / status / pages；claim → navigate_page（URL 带 `/a:b/c`）→ evaluate_script 读回标题 `Example Domain`；他人 actor 被租约拦下；release。
 - `mcp.json`：经 SSH 的 MCP stdio，36 个工具、租约拦截、Windows 路径文件盘点。
+- `user-agent.txt`（2026-10-11）：daemon 参数里带上版本号 155 的 UA，页面里 `navigator.userAgent` 不含 Headless，brands 是 `Google Chrome/155, Chromium/155`。
+- `self-heal.txt`（2026-10-11）：`stop` 之后 31 s 被 5 分钟心跳拉起；`Stop-Process -Force` 硬杀 daemon（按命令行里的 daemon.js ＋ 本 profile 匹配）后，本 Chrome 随之退出，3 分 38 s 后被心跳拉起，`pages` 正常，全程没有手动 start；之后的空跑心跳任务结果 0，daemon pid 不变，startup.log 不增行。研究浏览器主进程（pid 25208，10-10 22:48:42 启动）和 9444 全程不变。
 - `restart.txt`：`stop` 只结束本 profile 的 7 个 Chrome 进程（研究浏览器 8 个不动）→ `start` 经计划任务恢复；按 profile 杀掉本 Chrome 主进程后，下一次调用由上游自动重启它，page id 前进（1→2），旧租约不会落到新页面上。进程表显示本 Chrome 位于会话 1、`--headless=new --remote-debugging-pipe`、**无任何监听端口**；研究浏览器仍独占 `127.0.0.1:9444`。
 - `mac-reverify.txt`：分层重构部署到 Mac 后 daemon 未重启（pid 不变、参数不变），`pages` 真实连接，`probe-mcp` 通过。
 - `research-browser-*.json`：研究浏览器前后状态。之后 9444 仍只由 cdp-profile 的 Chrome 监听，19444 隧道 `/json/version` 正常。exit-pool 的 `remote-port-unavailable` 和 research-watch 的 `probe:browser` 是两个已有的告警，与本项目无关，已报给 team-lead：前者是 exit-pool-check 的 systemd 沙箱里 ssh 拒绝 `/etc/ssh/ssh_config.d/10-physical-windows.conf`（root 映射成 nobody），后者是 research-watch.service 的 PATH 里没有 `~/bin`。
@@ -130,7 +133,7 @@ browserctl --machine zengxiaoxiwin01 --actor me call evaluate_script '{"pageId":
 
 - 不碰研究浏览器：不开 TCP 端口，不落进 cdp-serve 的候选端口，按 profile 匹配进程，不按映像名；没改 `C:\win01-cdp` 和 `cdp-serve` 任务。
 - 不碰机主 Chrome：要驱动它（autoConnect 或 Playwright 扩展）需要机主本人同意并在桌面上批准，这一步留给用户；`config/hosts.json` 的 `win32.browser.mode` 改成 `autoConnect` 即可切换。
-- 注销后 daemon 随会话结束，下次登录由任务拉起；daemon 崩溃后需要 `browserctl start`（与 Mac 一致，没有轮询）。
+- 注销后 daemon 随会话结束，下次登录由任务拉起；daemon 崩溃后最多 5 分钟自动恢复。也因此 `browserctl stop` 只停到下一次心跳；要真正停掉，先 `schtasks //Change //TN chrome-control //DISABLE` 再 stop（恢复用 `//ENABLE`）。
 - SSH 到这台机建立会话本身约 2.9 s，`status` 合计约 4 s，离 hubctl 的 5 s 探测超时不远。
 - VBScript 预计 2027 年起默认关闭，见上文对照。
 - MSYS 会把以 `/` 开头的独立参数改写成 Windows 路径（实测 `/tmp/report.pdf` → `C:/Users/PC/AppData/Local/Temp/report.pdf`）；JSON 参数以 `{` 开头不受影响，`MSYS2_ARG_CONV_EXCL=*` 作为防线保留。

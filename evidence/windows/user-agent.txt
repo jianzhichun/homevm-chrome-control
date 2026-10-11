@@ -1,0 +1,8 @@
+# 2026-10-11 08:20:28 gap 2: headed UA from chrome.exe version
+$ status (args)
+['--headless', '--chromeArg=--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36']
+$ pages
+{"content":[{"type":"text","text":"## Pages\n1: about:blank [selected]"}]}
+$ claim + navigate + evaluate on page 1
+{"content":[{"type":"text","text":"Successfully navigated to https://example.com/.\n## Pages\n1: Example Domain (https:/
+{"content":[{"type":"text","text":"Script ran on page and returned:\n```json\n{\"title\":\"Example Domain\",\"ua\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36\",\"headlessInUA\":false,\"brands\":[\"Google Chrome/155\",\"Chromium/155\",\"Not(A:Brand/24\"],\"webdriver\":true}\n```"}]}

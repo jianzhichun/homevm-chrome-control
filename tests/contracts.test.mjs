@@ -77,10 +77,15 @@ test('host profiles: macOS args unchanged, Windows drives a dedicated profile ov
     '--workspace', '/Users/brook/Downloads', '--workspace', '/Users/brook/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil', '--autoConnect']);
   assert.equal(mac.runtime, '/Users/brook/Library/Caches/chrome-control/runtime');
   const win = HostProfile.select(specs, { platform: 'win32', home: 'C:\\Users\\PC', env: { LOCALAPPDATA: 'C:\\Users\\PC\\AppData\\Local' } });
-  const args = win.daemonArgs('C:\\Users\\PC\\workspace\\chrome-control');
+  const args = win.daemonArgs('C:\\Users\\PC\\workspace\\chrome-control', { chromeMajor: 155 });
   assert.equal(args[args.indexOf('--userDataDir') + 1], 'C:\\Users\\PC\\AppData\\Local\\chrome-control\\profile');
   assert.ok(args.includes('--headless') && !args.includes('--autoConnect'));
   assert.ok(!args.some(a => /remote-debugging-port|browserUrl/.test(a)));
+  assert.ok(win.wants('chromeMajor') && !mac.wants('chromeMajor'));
+  assert.throws(() => win.daemonArgs('C:\\x'), /chromeMajor/);
+  const ua = win.daemonArgs('C:\\x', { chromeMajor: 155 }).find(a => a.startsWith('--chromeArg=--user-agent='));
+  assert.match(ua, /Chrome\/155\.0\.0\.0 Safari/);
+  assert.doesNotMatch(ua, /Headless/);
   assert.throws(() => HostProfile.select(specs, { platform: 'win32', home: 'C:\\Users\\PC', env: {} }).runtime, /LOCALAPPDATA/);
   assert.throws(() => HostProfile.select(specs, { platform: 'aix', home: '/' }), /Unsupported/);
 });
@@ -91,4 +96,14 @@ test('logon task start runs the task once and fails clearly if no daemon appears
   const task = new LogonTask('chrome-control', daemon, { exec: async (...a) => runs.push(a), timeout: 30, interval: 10 });
   await assert.rejects(task.start(), /not ready/);
   assert.deepEqual(runs.map(r => r[1]), [['/Run', '/TN', 'chrome-control']]);
+});
+
+test('boot is a no-op while the daemon answers and starts it otherwise', async t => {
+  let running = true, starts = 0;
+  const daemon = { status: async () => ({ running }), start: async () => { starts++; return { running: true }; } };
+  const control = new BrowserControl('boot', { daemon }, await fixture(t));
+  assert.equal(await control.boot(), undefined);
+  running = false;
+  await control.boot();
+  assert.equal(starts, 1);
 });

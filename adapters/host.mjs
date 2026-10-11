@@ -6,6 +6,7 @@ import { HostProfile } from '../domain/host-profile.mjs';
 import { OfficialDaemon } from './daemon.mjs';
 import { BrowserFiles } from './files.mjs';
 import { LogonTask } from './logon-task.mjs';
+import { windowsChromeMajor } from './chrome-version.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -13,7 +14,8 @@ export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export function currentHost(platform = process.platform, env = process.env) {
   const specs = JSON.parse(readFileSync(join(root, 'config/hosts.json'), 'utf8'));
   const profile = HostProfile.select(specs, { platform, home: homedir(), env });
-  const daemon = new OfficialDaemon(profile, root);
+  const facts = profile.wants('chromeMajor') ? async () => ({ chromeMajor: await windowsChromeMajor(profile.executablePath) }) : undefined;
+  const daemon = new OfficialDaemon(profile, root, facts);
   const starter = profile.starter.kind === 'logonTask' ? new LogonTask(profile.starter.name, daemon) : daemon;
   return { profile, daemon, starter, files: new BrowserFiles(profile.roots(root)) };
 }
