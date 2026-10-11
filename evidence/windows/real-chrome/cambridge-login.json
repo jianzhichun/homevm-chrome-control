@@ -1,0 +1,120 @@
+{
+  "when": "2026-10-11T11:33:29.583Z",
+  "tenant": "49a50445-bdfa-4b79-ade3-547b4f3986e9",
+  "entry": "https://www-sciencedirect-com.ezp.lib.cam.ac.uk/",
+  "ok": true,
+  "finalUrl": "https://www-sciencedirect-com.ezp.lib.cam.ac.uk/",
+  "finalTitle": "ScienceDirect.com | Science, health and medical journals, full text articles and books.",
+  "steps": [
+    {
+      "pages": [
+        {
+          "pageId": 1,
+          "label": "运河-哔哩哔哩_bilibili (https://search.bilibili.com/all?vt=64899262&keyword=%E8%BF%90%E6%B2%B3&from_source=websuggest_search&spm_id_from=333.1007&search_source=2) [selected]"
+        },
+        {
+          "pageId": 2,
+          "label": "Inspect with Chrome Developer Tools (chrome://inspect/#remote-debugging)"
+        },
+        {
+          "pageId": 3,
+          "label": "https://hub.internal/"
+        },
+        {
+          "pageId": 4,
+          "label": "哔哩哔哩 (゜-゜)つロ 干杯~-bilibili (https://www.bilibili.com/)"
+        },
+        {
+          "pageId": 5,
+          "label": "dev (https://dev.internal/)"
+        },
+        {
+          "pageId": 6,
+          "label": "【官方歌词 (含闽南语翻译)+全专整轨+官方视觉】蛋堡 - 运河_哔哩哔哩_bilibili (https://www.bilibili.com/video/BV1y8ty6BEhr/?spm_id_from=333.337.search-card.all.click&vd_source=d0f975ce8c502fd72b3f27505a0479c9)"
+        },
+        {
+          "pageId": 7,
+          "label": "登录到您的帐户 (https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/resume?ctx=rQQIABABBAABBgIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cxgAAAAAAJPpre2YjcL0KWmQXSIiILPuprKz45cTzPriG9ySvh4fRzb_sWUcgfcd_C2YPDR6PhtbWKZibKLqY7tcRscb0IW2pAfa2ZvVQSa8aBeRaVSdzUJRZiyiJQErv9NHUd2nihX_amEmA1KKtBFbxHfRECQrOKcW0k3n2p9ZVNEvh0WuESAATVsUI6UzPLI2I-fO4yVe-MP1snuKAG19nJlWmmI6DjEGKbOEao_JbMY3oXH4n2836xLwNDkk9Fg8V6C20Fw9STDToivoCJZRrh1jDLeCBjTy1hDqDvwVtkrlpzfVhY4CzkyGuvHNe2F06UvhQXz0sCqbGzhk3ALHLHxuOEIUFIoGG63Z0N-zG3hwhAMsVQKE7ExZJ9oygnSAH2gTgCfVIdjZQ0QGs65R4ozARD2RJ09Q5qbhFD9RmBNisl3JUkSAhoJRhl_o6a1oDwjC8lRhaGDlOz3EfdrjhtFsK3o9jS81GUbVmH0EkU-kWm52r30-bNWxcHRv2aO9so27BXHZzru10rCdmiutA7iFlQsnJJae7-zBnBGLpQstD81YtI3hfNz_y0T4KBorUxACGN2EYiza0O34voolUwUSblyHQOcQQTXT5PyTwC_-ZkT05tDdm90pyCEcdYsxFsBw4Q2&username=xz586%40cam.ac.uk&npc=7)"
+        },
+        {
+          "pageId": 8,
+          "label": "昂 (https://ang.internal/)"
+        }
+      ]
+    },
+    {
+      "target page": {
+        "pageId": 7,
+        "label": "登录到您的帐户 (https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/resume?ctx=rQQIABABBAABBgIAAAADAOz_BQD0_"
+      }
+    },
+    "navigated to entry",
+    {
+      "claimed page": 7
+    },
+    {
+      "round": {
+        "round": 0,
+        "url": "https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/saml2",
+        "title": "登录到您的帐户"
+      }
+    },
+    {
+      "fill username": "filled"
+    },
+    {
+      "noFido": "hidden"
+    },
+    {
+      "round": {
+        "round": 1,
+        "url": "https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/saml2",
+        "title": "登录到您的帐户"
+      }
+    },
+    {
+      "fill password": "filled"
+    },
+    {
+      "round": {
+        "round": 2,
+        "url": "https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/login",
+        "title": "登录到您的帐户"
+      }
+    },
+    "push prompt; switching to code method",
+    {
+      "another-way": "clicked"
+    },
+    {
+      "method": "clicked"
+    },
+    {
+      "round": {
+        "round": 3,
+        "url": "https://login.microsoftonline.com/49a50445-bdfa-4b79-ade3-547b4f3986e9/login",
+        "title": "登录到您的帐户"
+      }
+    },
+    {
+      "fill code": "filled"
+    },
+    {
+      "round": {
+        "round": 4,
+        "url": "https://login.microsoftonline.com/common/SAS/ProcessAuth",
+        "title": "登录到您的帐户"
+      }
+    },
+    {
+      "kmsi": "clicked"
+    },
+    {
+      "round": {
+        "round": 5,
+        "url": "https://www-sciencedirect-com.ezp.lib.cam.ac.uk/",
+        "title": "ScienceDirect.com | Science, health and medical journals, fu"
+      }
+    }
+  ]
+}
