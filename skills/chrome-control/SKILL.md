@@ -5,7 +5,7 @@ description: 通过统一浏览器控制层操作远端现有 Chrome、页面快
 
 # Chrome 控制
 
-优先使用 `chrome-control` MCP；未加载时调用 `browserctl`。实现与现状在 `/home/dev/workspace/chrome-control/README.md`，实际连接以当前探针为准，不凭安装状态推断在线。
+只用 `browserctl` CLI（`chrome-control` MCP 已于 2026-10-09 移除）。目标：`zengxiaoximac01`（Mac，用户本人的 Chrome）、`zengxiaoxiwin01`（Windows，专用无头 profile，不是机主的 Chrome）。实现与现状在 `/home/dev/workspace/chrome-control/README.md`，实际连接以当前探针为准，不凭安装状态推断在线。
 
 1. `browserctl targets` 核目标；`browserctl --machine <alias> --actor <你的唯一名字> pages` 实际连接并列出官方 pageId。
 2. 仅选用户授权的业务标签，先 `call browser_claim_page '{"pageId":N}'`，再 `take_snapshot`，用最新 uid 调官方输入/上传工具。每一步显式 pageId，不操作 active tab。不共用其他队员 actor，pageId 不等于 AppleScript tab ID。
