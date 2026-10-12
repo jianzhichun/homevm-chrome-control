@@ -1,29 +1,19 @@
-// Pure logic for the download leg: choosing the file a navigation just
-// produced, and the artifact checks the pull side repeats after transfer.
+// Pure logic for the download leg: which tab donates the session, the
+// expressions run inside it, and the artifact checks repeated after transfer.
 
-export const PARTIAL_RE = /\.(crdownload|part|tmp)$/i;
-
-// Names that appeared since the watch began. Chrome names the finished file
-// itself (Content-Disposition); the requested name is applied later by the
-// move into staging.
-// `before` is a list of names snapshotted earlier; `after` the inventory now.
-export function newFiles(before, after) {
-  const known = new Set(before);
-  return after.filter(f => !known.has(f.name) && !f.partial && !PARTIAL_RE.test(f.name) && f.bytes > 0);
+// The donor tab for the same-origin fetch: the first page on the target
+// URL's origin. With profileDir set (a browser shared by several profiles)
+// the page must be PROVABLY that profile's - attributed, not unattributed or
+// ambiguous - so a tab of another profile is never driven.
+export function pickDonor(pages, url, profileDir) {
+  const origin = new URL(url).origin;
+  return pages.find(p => {
+    if (profileDir !== undefined && p.profile !== profileDir) return false;
+    try { return new URL(p.url).origin === origin; } catch { return false; }
+  }) || null;
 }
 
-// One new file wins outright; several need a tie-break: an exact .pdf beats
-// anything else, otherwise refuse rather than guess which download was ours.
-export function selectCandidate(newOnes) {
-  if (newOnes.length === 0) return { kind: 'none' };
-  if (newOnes.length === 1) return { kind: 'single', file: newOnes[0] };
-  const pdfs = newOnes.filter(f => /\.pdf$/i.test(f.name));
-  if (pdfs.length === 1) return { kind: 'pdf', file: pdfs[0] };
-  return { kind: 'ambiguous', files: newOnes };
-}
-
-// Downloads are matched against new files regardless of what the publisher
-// named them, but a filename the caller asked for must be a plain name.
+// The staged name the caller asked for must be a plain name.
 export function safeFilename(name) {
   const base = String(name || '').split(/[\\/]/).pop().trim();
   if (!base || base === '.' || base === '..' || /[<>:"|?*\u0000]/.test(base)) {

@@ -184,44 +184,64 @@ test('pages parse from list_pages text and route by profile', async t => {
   assert.equal(DEDICATED_PROFILE, 'chrome-control');
 });
 
-test('download leg: candidate selection, filename safety, pdf magic', async t => {
-  const { newFiles, selectCandidate, safeFilename, pdfMagicCheck } = await import('../domain/download.mjs');
-  const before = ['old.pdf'];
-  const after = [...before,
-    { name: 'paper.pdf.crdownload', bytes: 5, partial: true },
-    { name: 'paper.pdf', bytes: 900, partial: false },
-    { name: 'unrelated.zip', bytes: 1, partial: false }];
-  assert.deepEqual(newFiles(before, after).map(f => f.name), ['paper.pdf', 'unrelated.zip']);
-  assert.equal(selectCandidate([]).kind, 'none');
-  assert.equal(selectCandidate(newFiles(before, [{ name: 'only.pdf', bytes: 3, partial: false }])).kind, 'single');
-  const two = selectCandidate(newFiles(before, after));
-  assert.equal(two.kind, 'pdf');
-  assert.equal(two.file.name, 'paper.pdf');
-  assert.equal(selectCandidate([{ name: 'a.zip', bytes: 1 }, { name: 'b.zip', bytes: 1 }]).kind, 'ambiguous');
-  assert.equal(safeFilename('../escape.pdf'), 'escape.pdf'); // basename-only, staged by us
-  assert.throws(() => safeFilename('a:b.pdf'), /Unsafe/);
-  assert.equal(safeFilename('C:\\x\\ok name.PDF'), 'ok name.PDF');
-  assert.ok(pdfMagicCheck(Buffer.from('%PDF-1.7 rest')));
-  assert.ok(!pdfMagicCheck(Buffer.from('<html')));
-});
+const ok = v => ({ content: [{ type: 'text', text: 'Script ran on page and returned:\n```json\n' + JSON.stringify(v) + '\n```' }] });
+const listing = lines => ({ content: [{ type: 'text', text: ['## Pages', ...lines].join('\n') }] });
 
-test('download use-case: guard rails before anything touches the browser', async t => {
-  const { safeFilename } = await import('../domain/download.mjs');
-  assert.equal(safeFilename('../escape.pdf'), 'escape.pdf'); // basename-only, staged by us
-  assert.throws(() => safeFilename('a:b.pdf'), /Unsafe/);
-  const { BrowserControl } = await import('../application/control.mjs');
-  const mod = await import('../application/download.mjs');
-  const host = {
-    profile: { runtime: '/tmp/rt', mode: 'autoConnect', platform: 'win32',
-      executablePath: 'C:/chrome.exe', staging: 'C:/Users/PC/Downloads/chrome-control',
-      stagingWatch: 'C:/Users/PC/Downloads', profiles: { userDataDir: '/ud', browser: 'real' } },
-    daemon: { call: async () => ({ content: [] }), status: async () => ({ running: true, pid: 3 }) },
-    starter: { start: async () => ({}) },
-    profiles: { list: async () => [{ dir: 'Profile 1', name: 'Brook' }], urlSets: async () => new Map() },
-    files: {},
+// A browser instance whose daemon answers from `answer(name, args)`.
+function fakeInstance(mode, answer, urlSets = new Map()) {
+  const calls = [];
+  const staged = {};
+  return {
+    calls, staged,
+    host: {
+      profile: { runtime: '/tmp/rt', mode, staging: '/stage', profiles: { userDataDir: '/ud', browser: 'real' } },
+      daemon: { status: async () => ({ running: true, pid: 9 }), call: async (n, a) => { calls.push([n, a]); return answer(n, a); } },
+      starter: {},
+      profiles: { list: async () => [{ dir: 'Profile 1' }, { dir: 'cc-test' }], urlSets: async () => urlSets },
+      files: {
+        writeBuffer: async (path, buf) => { staged[path] = buf; return path; },
+        describe: async path => ({ bytes: staged[path].length, sha256: 'h' }),
+      },
+    },
   };
-  const control = new BrowserControl('dl', host, await fixture(t), () => host);
-  const dedicated = { ...host, profile: { ...host.profile, mode: 'dedicated' } };
-  const c2 = new BrowserControl('dl', dedicated, await fixture(t), () => dedicated);
-  await assert.rejects(mod.downloadArtifact(c2, { url: 'https://x.test/a.pdf', filename: 'a.pdf', profile: 'chrome-control' }), /dedicated headless/);
+}
+
+test('download leg: donor stays inside its profile; dedicated opens and closes its own tab', async t => {
+  const { downloadArtifact } = await import('../application/download.mjs');
+  const { pickDonor, safeFilename, pdfMagicCheck } = await import('../domain/download.mjs');
+  const pdf = Buffer.from('%PDF-1.7 x');
+  const b64 = pdf.toString('base64');
+  const browserAnswers = landed => (n, a) => {
+    if (n === 'list_pages') return listing(['1: about:blank']);
+    if (n === 'new_page') return listing(['1: about:blank', `2: ${landed}`]);
+    if (n === 'evaluate_script') return ok(a.function.includes('fetch(') ? { ok: true, size: pdf.length, b64len: b64.length } : b64);
+    return { content: [] };
+  };
+
+  // Dedicated: no tab on the origin -> open one there, fetch, close it.
+  const ded = fakeInstance('dedicated', browserAnswers('https://x.test/'));
+  const control = new BrowserControl('dl', ded.host, await fixture(t), () => { throw new Error('no other instance'); });
+  const out = await downloadArtifact(control, { url: 'https://x.test/a.pdf', filename: 'a.pdf' });
+  assert.equal(out.bytes, pdf.length);
+  assert.equal(out.via, 'session-tab (opened)');
+  assert.deepEqual(ded.calls.filter(c => c[0] === 'close_page').map(c => c[1].pageId), [2]);
+
+  // Dedicated, session gone: the origin redirects to login -> named failure, tab closed.
+  const gone = fakeInstance('dedicated', browserAnswers('https://login.microsoftonline.com/x'));
+  const c2 = new BrowserControl('dl', gone.host, await fixture(t), () => { throw new Error('no other instance'); });
+  await assert.rejects(downloadArtifact(c2, { url: 'https://x.test/a.pdf', filename: 'a.pdf' }), /No session on https:\/\/x.test/);
+  assert.ok(gone.calls.some(c => c[0] === 'close_page'));
+
+  // Owner's Chrome: a same-origin tab of ANOTHER profile is never driven and no tab is opened.
+  const urls = new Map([['Profile 1', new Set(['https://x.test/p'])]]);
+  const real = fakeInstance('autoConnect', n => (n === 'list_pages' ? listing(['5: P (https://x.test/p)']) : ok(null)), urls);
+  const c3 = new BrowserControl('dl', ded.host, await fixture(t), () => real.host);
+  await assert.rejects(downloadArtifact(c3, { url: 'https://x.test/a.pdf', filename: 'a.pdf', profile: 'cc-test' }), /never opened in an owner/);
+  assert.deepEqual(real.calls.map(c => c[0]), ['list_pages']);
+
+  assert.equal(pickDonor([{ pageId: 5, url: 'https://x.test/p', profile: null }], 'https://x.test/a.pdf', 'cc-test'), null);
+  assert.equal(pickDonor([{ pageId: 6, url: 'https://x.test/q', profile: 'cc-test' }], 'https://x.test/a.pdf', 'cc-test').pageId, 6);
+  assert.equal(safeFilename('../escape.pdf'), 'escape.pdf');
+  assert.throws(() => safeFilename('a:b.pdf'), /Unsafe/);
+  assert.ok(pdfMagicCheck(pdf) && !pdfMagicCheck(Buffer.from('<html')));
 });

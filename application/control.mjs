@@ -88,12 +88,19 @@ export class BrowserControl {
     return this.hostFactory(serving.browser);
   }
 
+  // The use-case object for the instance serving profileDir (this one when
+  // it is the same host), so page leases scope to the right daemon.
+  controlFor(profileDir) {
+    const host = this.hostFor(profileDir);
+    return host === this.host ? this : new BrowserControl(this.actor, host, undefined, this.hostFactory);
+  }
+
   // Pages of one instance, each attributed to its Chrome profile where the
   // profile's own session files identify them. With a profileDir only that
   // profile's tabs are returned; the rest are counted, not hidden.
   async pages(profileDir) {
-    const host = this.hostFor(profileDir);
-    const control = host === this.host ? this : new BrowserControl(this.actor, host);
+    const control = this.controlFor(profileDir);
+    const host = control.host;
     const pages = parsePageLines(await control.daemon.call('list_pages'));
     if (!profileDir || profileDir === DEDICATED_PROFILE) {
       return profileDir === DEDICATED_PROFILE
@@ -110,8 +117,8 @@ export class BrowserControl {
   }
 
   async call(name, args = {}, profileDir) {
-    const host = this.hostFor(profileDir);
-    const control = host === this.host ? this : new BrowserControl(this.actor, host);
+    const control = this.controlFor(profileDir);
+    const host = control.host;
     // Page IDs are daemon-scoped: with a profile target, reject only a pageId
     // that provably belongs to a DIFFERENT profile of the same browser;
     // unattributed pages pass (attribution is best-effort history).

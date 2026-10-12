@@ -16,10 +16,7 @@
       "userDataDir": "{home}/Library/Application Support/Google/Chrome",
       "browser": "default"
     },
-    "staging": "{home}/Downloads/chrome-control",
-    "opener": {
-      "kind": "direct"
-    }
+    "staging": "{home}/Downloads/chrome-control"
   },
   "win32": {
     "runtime": "{LOCALAPPDATA}/chrome-control/runtime",
@@ -46,11 +43,6 @@
         "starter": {
           "kind": "logonTask",
           "name": "chrome-control-real"
-        },
-        "opener": {
-          "kind": "openTask",
-          "task": "chrome-control-open",
-          "request": "{LOCALAPPDATA}/chrome-control/open-request.txt"
         }
       }
     },
