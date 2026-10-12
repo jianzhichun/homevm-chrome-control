@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { BrowserControl, DEDICATED_PROFILE } from '../application/control.mjs';
 import { downloadArtifact } from '../application/download.mjs';
+import { signInCommand } from './login.mjs';
 import { serve } from './mcp.mjs';
 
 const [actor, command, tool, rawArgs] = process.argv.slice(2);
@@ -22,13 +23,14 @@ try {
       if (!tool) throw new Error('download requires URL and JSON arguments (filename)');
       result = await downloadArtifact(control, { ...JSON.parse(rawArgs || '{}'), url: tool, profile: profile });
       break;
+    case 'login': result = await signInCommand(control, { entry: tool, profile }); break;
     case 'pages': result = await control.pages(profile); break;
     case 'call':
       if (!tool) throw new Error('call requires TOOL and optional JSON arguments');
       result = await control.call(tool, JSON.parse(rawArgs || '{}'), profile);
       break;
     case 'mcp': await serve(control); break;
-    default: throw new Error('Expected start, boot, stop, status, tools, profiles, download, pages, call or mcp');
+    default: throw new Error('Expected start, boot, stop, status, tools, profiles, download, login, pages, call or mcp');
   }
   if (result !== undefined) {
     console.log(JSON.stringify(result));

@@ -24,7 +24,9 @@ def main():
     parser.add_argument("--out", metavar="NAME", help="download: name the collected file in staging")
     parser.add_argument("--timeout", type=int, default=120, help="download: give up after N seconds")
     parser.add_argument("--identity", help="download: note about whose session the download relies on")
-    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "profiles", "download", "pages", "call", "mcp"])
+    parser.add_argument("--credentials", default=str(Path.home() / ".config/cambridge/credentials"),
+                        help="login: owner's credentials file, sent over ssh stdin (never argv)")
+    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "profiles", "download", "login", "pages", "call", "mcp"])
     parser.add_argument("tool", nargs="?")
     parser.add_argument("arguments", nargs="?", default="{}")
     args = parser.parse_args()
@@ -38,8 +40,8 @@ def main():
             parser.error("call requires TOOL and optional JSON arguments")
         if not isinstance(json.loads(args.arguments), dict):
             parser.error("Arguments must be a JSON object")
-    if args.profile and args.command not in ("pages", "call", "download"):
-        parser.error("--profile applies to pages, call and download")
+    if args.profile and args.command not in ("pages", "call", "download", "login"):
+        parser.error("--profile applies to pages, call, download and login")
     if args.command == "download":
         if not args.tool:
             parser.error("download requires a URL")
@@ -52,6 +54,8 @@ def main():
     remote = (["env", *env] if env else []) + [target["node"], target["root"] + "/interfaces/cli.mjs", args.actor, args.command]
     if args.command == "call":
         remote += [args.tool, args.arguments]
+    if args.command == "login" and args.tool:
+        remote += [args.tool]
     if args.command == "download":
         # cli.mjs <actor> download <url> <json>: the URL rides in the tool
         # slot; download options become its JSON arguments.
@@ -63,10 +67,11 @@ def main():
         })]
     ssh = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", target["ssh"], shlex.join(remote)]
     try:
-        ssh_timeout = None if args.command == "mcp" else (args.timeout + 60 if args.command == "download" else 50)
-        return subprocess.run(ssh, timeout=ssh_timeout).returncode
+        ssh_timeout = {"mcp": None, "download": args.timeout + 60, "login": 420}.get(args.command, 50)
+        stdin = Path(args.credentials).read_bytes() if args.command == "login" else None
+        return subprocess.run(ssh, timeout=ssh_timeout, input=stdin).returncode
     except subprocess.TimeoutExpired:
-        print(json.dumps({"error": "Remote operation exceeded 50 seconds; no retry was sent"}), file=sys.stderr)
+        print(json.dumps({"error": f"Remote operation exceeded {ssh_timeout} seconds; no retry was sent"}), file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         return 130

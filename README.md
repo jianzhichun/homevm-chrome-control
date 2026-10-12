@@ -117,13 +117,20 @@ browserctl --machine zengxiaoxiwin01 --actor me call evaluate_script '{"pageId":
 
 文件路径用 Windows 路径（`C:\Users\PC\Downloads\…`），文件根是项目目录和 Downloads。专用 profile 初始没有任何登录；需要登录的网站要在这个 profile 里登录一次（它在磁盘上持久，用户 DPAPI 加密）。UA 与普通 Chrome 一致（`navigator.userAgent` 和 client-hint brands 都没有 Headless），但 `navigator.webdriver` 为 true（上游默认带 `--enable-automation`），仍可能被识别为自动化。
 
-### 下载腿 v0（2026-10-11，同目录 `download-v0.md`）
+### 下载腿（生产路径：专用实例，2026-10-12）
 
-`browserctl --machine zengxiaoxiwin01 download <url> --out NAME [--profile DIR] [--timeout N] [--identity NOTE]`：在浏览器机上打开 URL（下载腿的关键是**选对 profile**——CDP 建不了指定 profile 的 target，`new_page` 只会落在上次活动的 profile；因此走交互会话的 URL 转发：写 `%LOCALAPPDATA%\chrome-control\open-request.txt`（chrome 路径/profile 目录/URL 三行）＋ `/Run` 一次性任务 `\chrome-control-open`，由它转发给正在运行的 Chrome。SSH 里直接 spawn chrome.exe 过不去 ProcessSingleton 锁），轮询 Chrome 下载目录里的新完成文件（稳定大小+哈希、无 .crdownload），挪进暂存目录 `Downloads\chrome-control\<NAME>`，返回 `{path, bytes, sha256, final_url, http_status(尽力), profile, identity}`。
+`browserctl --machine zengxiaoxiwin01 download <url> --out NAME [--profile DIR] [--identity NOTE]`：选一个**目标 origin 上的 tab**，在页内做同源带凭据的 fetch，先校验 `%PDF-` 再分块 base64 回传，写进暂存目录 `Downloads\chrome-control\<NAME>`，返回 `{path, bytes, sha256, finalUrl, profile, via, identity}`。donor 页走租约（`LeasedPage`）。
 
-homevm 回传：`scripts/pull-download.sh <machine> <remotePath> <dest> <sha256> [--pdf]` —— Windows Git-Bash 没有 rsync，用 ssh 上的 `tail -c` 分块续传，传输完成后校验 sha256（和可选 %PDF- 魔数）才落位。papers-store 的落库是调用方的职责（`~/papers/<编码DOI>/main.pdf`），本层只做暂存与可信搬运。
+- **默认 profile = `chrome-control`（专用实例）**，这也是生产路径。实例由我们自己用 `--remote-debugging-pipe` 拉起，独立 user-data-dir，**没有 Allow 弹窗**，5 分钟心跳守护；机主不在场也能跑。目标 origin 没有 tab 时，下载腿自己开一个、用完关掉；如果被重定向离开该 origin（会话失效），会报 `No session on <origin>`，提示先跑 `login`。
+- `--profile <机主 Chrome 的 profile>`：只使用一个**能证明属于该 profile** 的现有 tab（按 SNSS 归属；未归属或有歧义的 tab 一律不用），**绝不在机主 profile 里开 tab**。机主 Chrome 已退出生产链：autoConnect 每建一个新连接都要人在桌面点一次 Allow，这是 Chrome 有意的设计，没有可以免确认的正规策略。（2026-10-12 误设的 `DeveloperToolsAvailability=2` 实际是全机禁用 DevTools，会让所有 daemon 都看不到页面，已撤销。）
+- homevm 回传：`scripts/pull-download.sh <machine> <remotePath> <dest> <sha256> [--pdf]`。
 
-身份边界：下载腿跑在有 Cambridge 会话的 Chrome profile 里（当前是机主真实 Chrome），不碰 9444 研究浏览器；专用 headless 实例无身份，调用时会被拒绝。会话过期时下载腿拿到的是登录跳转页（超时+诊断信息），此时先跑 `scripts/cambridge-login.mjs` 再重试——流水线接线时按"会话过期单次触发、失败告警等人、不循环"的护栏处理。
+`browserctl --machine zengxiaoxiwin01 login [ENTRY]`：在专用实例里无人值守登录 Cambridge（Raven/Entra），已获机主授权。凭据文件（默认 `~/.config/cambridge/credentials`，可用 `--credentials` 指定）经 ssh **stdin** 传过去，不进 argv。流程：开一个 tab → 进入 ENTRY（默认是 ScienceDirect 文章页，走 ezproxy）→ 用户名 → 密码 → push 提示切到 PhoneAppOTP → TOTP → 保持登录 → 关 tab。护栏：
+- 每个凭据最多提交一次，同一个字段再次出现就视为被拒，立即停止，避免锁号。
+- 账号注册了 passkey：提交用户名前先把 `PublicKeyCredential` 去掉。如果仍被路由到 `bridge/fido`，点一次页面的“上一步”；还不行就停下并报“需要人处理”。
+- 出现“选择登录方法”时选“使用我的密码”。
+- 只在专用实例里跑，`--profile` 指向机主 profile 时直接拒绝。
+代码：`domain/entra.mjs`（凭据解析、TOTP、选择器、页内表达式）、`application/sign-in.mjs`（流程本身）、`interfaces/login.mjs`（命令入口）。
 
 ### 机主真实 Chrome（2026-10-11，`evidence/windows/real-chrome/`）
 
@@ -132,7 +139,7 @@ Windows 上新增命名实例 `real`：autoConnect 连机主正在用的 Chrome�
 - `browserctl --machine zengxiaoxiwin01 profiles`：读 `Local State` 的 `info_cache`，列目录名/显示名/登录账号（macOS 同一份结构，同一实现）。
 - `browserctl --machine zengxiaoxiwin01 --profile "Profile 1" pages|call ...`：按 profile 驱动。页面归属靠各 profile 自己的 SNSS 会话文件（`Last Session`/`Sessions/*`）里的 URL 指纹：只出现在一个 profile 的历史里 → 归属它；多个 profile 都有 → `ambiguous`，不猜。这是历史证据不是实时断言：tab 关掉后历史仍会命中，归属不出的页计进 `unattributed`。`chrome-control` 这个名字专指专用 headless 实例。
 - 计划任务成对注册：`\chrome-control`（专用 headless）与 `\chrome-control-real`（机主 Chrome），各自 runtime 目录与 daemon 会话（默认 `cc001`，命名实例取哈希），互不挤占。
-- Cambridge 登录：`scripts/cambridge-login.mjs` 在浏览器机上运行，经官方工具走 Entra（用户名 → 密码 → push 提示切换到 PhoneAppOTP → TOTP → 保持登录选是），每个凭据至多提交一次。账号注册了 passkey，Entra 可能把浏览器直接路由到 `bridge/fido`（原生 WebAuthn 弹窗，脚本无法代答）：走法是页面"上一步"或由人点掉原生弹窗，Entra 退回"选择登录方法"选"使用我的密码"。证据：`cambridge-login.json`（ok:true）、`sciencedirect-authenticated.png`、`multi-profile.txt`。
+- Cambridge 登录（历史记录）：2026-10-11 用已删除的 `scripts/cambridge-login.mjs` 在机主 Chrome 里登录过，证据见 `cambridge-login.json`、`sciencedirect-authenticated.png`、`multi-profile.txt`。现在登录只走专用实例，用 `browserctl login`，见上文“下载腿”一节。
 
 ### 验收（2026-10-10，`evidence/windows/`）
 

@@ -245,3 +245,30 @@ test('download leg: donor stays inside its profile; dedicated opens and closes i
   assert.throws(() => safeFilename('a:b.pdf'), /Unsafe/);
   assert.ok(pdfMagicCheck(pdf) && !pdfMagicCheck(Buffer.from('<html')));
 });
+
+test('sign-in: TOTP per RFC 6238, credentials parsed, a rejected credential is never resubmitted', async () => {
+  const { totpCode, parseCredentials } = await import('../domain/entra.mjs');
+  const { CambridgeSignIn } = await import('../application/sign-in.mjs');
+  assert.equal(totpCode('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 59), '287082');
+  assert.deepEqual(parseCredentials('# c\nCAM_USER=u\nCAM_PASS="p w"\nCAM_TOTP_SECRET=S\n'), { user: 'u', password: 'p w', totpSecret: 'S' });
+  assert.throws(() => parseCredentials('CAM_USER=u'), /CAM_PASS, CAM_TOTP_SECRET/);
+
+  // Entra keeps showing an empty username field: the second sighting stops the walk.
+  const fills = [];
+  const page = {
+    navigate: async () => {},
+    snapshot: async () => '',
+    eval: async fn => {
+      if (fn.includes('readyState')) return { url: 'https://login.microsoftonline.com/t/saml2', title: 'Sign in', ready: 'complete' };
+      if (fn.includes("'filled'")) { fills.push(fn); return 'filled'; }
+      if (fn.includes('offsetParent !== null; }')) return fn.includes('loginfmt');
+      if (fn.includes('f.value')) return '';
+      return fn.includes('innerText') ? '' : false;
+    },
+  };
+  const out = await new CambridgeSignIn(page, { user: 'u', password: 'p', totpSecret: 'S' },
+    { entry: 'https://www-x.ezp.test/a', sleep: async () => {} }).run();
+  assert.equal(out.ok, false);
+  assert.equal(out.stopped, 'username rejected');
+  assert.equal(fills.length, 1);
+});
