@@ -1,7 +1,7 @@
 import { stat, realpath, readdir, rename, mkdir, writeFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { resolve, sep, dirname, basename } from 'node:path';
+import { resolve, sep, dirname, basename, join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 
 export class BrowserFiles {
@@ -40,8 +40,10 @@ export class BrowserFiles {
   // when a publisher renders the PDF inline and the bytes come through the
   // page itself instead of Chrome's download pipeline.
   async writeBuffer(to, buffer) {
-    const dst = await this.path(to);
-    await mkdir(dirname(dst), { recursive: true });
+    // The destination does not exist yet - realpath would throw ENOENT.
+    // Contain the PARENT (which exists) and keep the caller's basename.
+    const parent = await this.path(dirname(to));
+    const dst = join(parent, basename(to));
     await writeFile(dst, buffer);
     return dst;
   }
