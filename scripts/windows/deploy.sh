@@ -57,11 +57,3 @@ for inst in $instances; do
   render_task "chrome-control-$inst" " $inst"
 done
 
-# 4. One-shot opener for the download leg (interactive-session URL forward).
-python3 -I - "$here/task-open.xml" "$sid" "$user" "$(winpath "$root")" <<'PY' | iconv -f utf-8 -t utf-16 | remote 'cat > "$TEMP/chrome-control-open.task.xml"'
-import sys
-from xml.sax.saxutils import escape
-template, sid, user, root = sys.argv[1:]
-print(open(template).read().format(sid=escape(sid), user=escape(user), root=escape(root)), end='')
-PY
-remote 'schtasks //Create //TN chrome-control-open //XML "$(cygpath -w "$TEMP/chrome-control-open.task.xml")" //F; rc=$?; rm -f "$TEMP/chrome-control-open.task.xml"; exit $rc' 

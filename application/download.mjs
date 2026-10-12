@@ -5,6 +5,8 @@ import { parsePageLines } from './control.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+const SLICE = 1_500_000;
+
 // The download leg, run on the browser machine: open the URL in the chosen
 // profile of the running Chrome (the OS forwards into the existing browser,
 // so the profile's cookies ride along), wait for Chrome to finish writing
@@ -14,6 +16,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // v0 scope: identity-bearing instances only — the dedicated headless browser
 // has no Cambridge session, and its downloads are not part of this leg.
 export async function downloadArtifact(control, args) {
+  const errors = [];
+  let sessionTabError = null;
   const filename = safeFilename(args.filename);
   const timeoutMs = Math.min(Math.max(args.timeoutMs || 120_000, 15_000), 480_000);
   const serving = control.host.profile.profiles;
@@ -25,6 +29,37 @@ export async function downloadArtifact(control, args) {
   }
   const files = host.files;
   const watchDir = host.profile.stagingWatch;
+
+  // The Cambridge session lives in a PROFILE of the running Chrome, shared
+  // by that profile's tabs through cookies. The primary route drives the
+  // EXISTING session tab (same ezproxy host): navigate it to the URL, then
+  // pull the bytes through the page itself - no new tab, no opener, and the
+  // tab is restored to where it was.
+  try {
+    const donor = await sessionDonor(control, url);
+    if (donor) {
+      const extracted = await extractViaPageId(control, donor.pageId, url);
+      const staged = await files.writeBuffer(join(host.profile.staging, filename), extracted.buffer);
+      const described = await files.describe(staged);
+      if (donor.originalUrl) {
+        await control.daemon.call('navigate_page',
+          { pageId: donor.pageId, type: 'url', url: donor.originalUrl }, 90_000).catch(() => {});
+      }
+      return {
+        path: staged,
+        bytes: described.bytes,
+        sha256: described.sha256,
+        finalUrl: extracted.finalUrl || url,
+        httpStatus: extracted.httpStatus ?? null,
+        profile: profileDir,
+        originalName: filename,
+        via: 'session-tab',
+        identity: args.identity || `Chrome profile ${profileDir} session`,
+      };
+    }
+  } catch (error) {
+    sessionTabError = String(error.message || error).slice(0, 200);
+  }
 
   if (!host.opener) throw new Error(`No opener configured for this instance (${profileDir})`);
   const before = (await files.inventory(watchDir)).files.map(f => f.name);
@@ -78,8 +113,61 @@ export async function downloadArtifact(control, args) {
   };
 }
 
+
+// The Cambridge-session tab: any page on an ezp.lib.cam.ac.uk host (the
+// session is cookie-based per profile and shared across that profile's
+// tabs). Prefers a page already on the publisher family.
+export async function sessionDonor(control, url) {
+  const pages = parsePageLines(await control.daemon.call('list_pages'));
+  const donors = pages.filter(p => (p.url || '').includes('.ezp.lib.cam.ac.uk'));
+  if (!donors.length) return null;
+  return { pageId: donors[0].pageId, originalUrl: donors[0].url };
+}
+
+// Inline extraction on a GIVEN pageId: navigate is the caller's job; here we
+// fetch the URL same-origin with credentials, check the %PDF- magic, stash
+// base64 in the page, slice it home, and assemble. The page must be on the
+// same origin as the URL (the ezproxy host) for the fetch to carry cookies.
+export async function extractViaPageId(control, pageId, url) {
+  const ev = async expr => {
+    const r = await control.daemon.call('evaluate_script', { pageId, function: expr });
+    const t = r.content?.find(c => c.type === 'text')?.text ?? '';
+    const m = t.match(/```json\n([\s\S]*?)\n```/);
+    if (r.isError) throw new Error((m ? m[1] : t).slice(0, 200));
+    return m ? JSON.parse(m[1]) : t;
+  };
+  const stash = await ev(`async () => {
+    const r = await fetch(${JSON.stringify(url)}, { credentials: 'include' });
+    const ct = r.headers.get('content-type') || '';
+    const buf = new Uint8Array(await r.arrayBuffer());
+    const magic = String.fromCharCode(...buf.slice(0, 5));
+    if (magic !== '%PDF-') {
+      const head = new TextDecoder().decode(buf.slice(0, 140)).replace(/\s+/g, ' ');
+      return { ok: false, ct, size: buf.length, head };
+    }
+    let bin = ''; const CH = 0x8000;
+    for (let i = 0; i < buf.length; i += CH) bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
+    window.__ccPdfB64 = btoa(bin);
+    return { ok: true, ct, size: buf.length, b64len: window.__ccPdfB64.length, url: r.url };
+  }`);
+  if (stash.ok !== true) {
+    const e = new Error(`Inline fetch did not return a PDF (content-type ${stash.ct}, ${stash.size} bytes, head: ${stash.head})`);
+    e.httpStatus = stash.size;
+    throw e;
+  }
+  const chunks = [];
+  for (let off = 0; off < stash.b64len; off += SLICE) {
+    chunks.push(await ev(`() => window.__ccPdfB64.slice(${off}, ${off + SLICE})`));
+  }
+  const buffer = Buffer.from(chunks.join(''), 'base64');
+  if (!pdfMagicCheck(buffer) || buffer.length !== stash.size) {
+    throw new Error(`Inline extraction failed integrity: ${buffer.length} bytes`);
+  }
+  return { buffer, finalUrl: stash.url || url, httpStatus: 200 };
+}
+
+
 // The page-side half of inline extraction: stash -> slice -> assemble.
-const SLICE = 1_500_000;
 async function extractViaPage(control, host, url, timeoutMs) {
   const target = control.host === host ? control : new control.constructor(control.actor, host);
   const pages = parsePageLines(await target.daemon.call('list_pages'));
