@@ -1,0 +1,67 @@
+{
+  "targets": {
+    "summary": "列出可操作的机器（本地读取，不连接浏览器）",
+    "usage": "browserctl targets"
+  },
+  "profiles": {
+    "summary": "列出 Chrome 登记账号、Profile 和私人别名",
+    "usage": "browserctl --machine MACHINE profiles",
+    "notes": ["按邮箱或别名选账号，不靠窗口位置或历史网址猜测。", "Profile 登记邮箱不等于网站实际登录身份。"]
+  },
+  "open": {
+    "summary": "在指定账号的已有登录态中新建受控标签，并核验网站身份",
+    "usage": "browserctl --machine MACHINE --actor TASK --account EMAIL_OR_ALIAS open URL",
+    "notes": ["示例：browserctl --actor my-task --account cambridge open https://www.vle.cam.ac.uk/my/", "返回 pageId、Profile 绑定证据和 websiteIdentity。", "后续命令保持同一 --actor 和 --account；原有用户标签不自动接管。"]
+  },
+  "pages": {
+    "summary": "列出指定账号的已绑定任务标签",
+    "usage": "browserctl --actor TASK --account EMAIL_OR_ALIAS pages",
+    "notes": ["不带账号时仅作全局诊断，不把历史 URL 当作账号归属证明。"]
+  },
+  "identity": {
+    "summary": "核验受控标签当前的网站登录身份",
+    "usage": "browserctl --actor TASK --account EMAIL_OR_ALIAS identity PAGE_ID",
+    "notes": ["目前支持 Cambridge Moodle；其他网站明确返回 unverified。", "租约过期时先 call browser_claim_page。"]
+  },
+  "tools": {
+    "summary": "列工具名，或按需查看一个工具的精确参数 schema",
+    "usage": "browserctl tools [TOOL]",
+    "notes": ["例如：browserctl tools click；browserctl tools take_snapshot。", "普通会话无需配置或连接 MCP，直接通过 call 调工具。"]
+  },
+  "call": {
+    "summary": "从 CLI 直接调用页面、输入、截图、上传等浏览器能力",
+    "usage": "browserctl --actor TASK --account EMAIL_OR_ALIAS call TOOL '{\"pageId\":123}'",
+    "notes": ["快照：call take_snapshot '{\"pageId\":123}'", "导航：call navigate_page '{\"pageId\":123,\"type\":\"url\",\"url\":\"https://example.org/\"}'", "点击：call click '{\"pageId\":123,\"uid\":\"从最新快照取得\"}'", "关闭自己的标签：call close_page '{\"pageId\":123}'", "需要参数时运行 browserctl tools TOOL；不要加载 skill 或猜参数。"]
+  },
+  "download": {
+    "summary": "用指定账号下载 PDF，隔离落盘并返回字节数和 SHA256",
+    "usage": "browserctl --actor TASK --account EMAIL_OR_ALIAS --out NAME.pdf download URL",
+    "notes": ["没有本任务的同源标签时自动创建，下载后关闭；不借用其他会话标签。", "每份下载保存到浏览器机器的新独立目录，不覆盖旧文件。", "配置了预期 Moodle 用户时，网站身份必须匹配才能取 PDF。"]
+  },
+  "status": {
+    "summary": "查看 daemon 状态及 CLI 源码版本，不代表网站身份已核实",
+    "usage": "browserctl --machine MACHINE status"
+  },
+  "capabilities": {
+    "summary": "读取协议能力和运行源码 hash，核对两端部署",
+    "usage": "browserctl --machine MACHINE capabilities"
+  },
+  "start": {
+    "summary": "明确启动浏览器控制 daemon；不绕过 Chrome 原生 Allow",
+    "usage": "browserctl --machine MACHINE start"
+  },
+  "stop": {
+    "summary": "停止指定控制 daemon（会影响共享连接，操作前确认使用者）",
+    "usage": "browserctl --machine MACHINE stop"
+  },
+  "login": {
+    "summary": "仅在已授权专用实例中执行既有 Cambridge 登录流程",
+    "usage": "browserctl --machine MACHINE login [ENTRY_URL]",
+    "notes": ["不适用于个人 --account；凭据不进入 argv。", "需要原生确认、验证码或二次认证时按正常授权边界处理。"]
+  },
+  "mcp": {
+    "summary": "可选的 MCP stdio 兼容入口；普通操作不需要它",
+    "usage": "browserctl --actor TASK --account EMAIL_OR_ALIAS mcp",
+    "notes": ["浏览器驱动复用官方 Chrome DevTools MCP daemon，但日常用户接口是 CLI。", "CLI 不依赖 Claude skill，不会自动注册会话 MCP。"]
+  }
+}

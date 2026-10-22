@@ -22,10 +22,3 @@ else
   ln -s "$root/bin/browserctl" "$HOME/bin/browserctl"
 fi
 chmod +x "$root/bin/browserctl"
-skill="$HOME/.claude/skills/chrome-control"
-if [[ -e "$skill" || -L "$skill" ]]; then
-  [[ $(readlink -f "$skill") == "$root/skills/chrome-control" ]] || { echo 'Existing chrome-control skill differs; refusing overwrite.' >&2; exit 1; }
-else
-  mkdir -p "$HOME/.claude/skills"
-  ln -s "$root/skills/chrome-control" "$skill"
-fi

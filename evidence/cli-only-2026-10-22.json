@@ -1,0 +1,12 @@
+{
+  "mode": "CLI-first; no skill dependency or model-session MCP registration",
+  "skillRemoved": true,
+  "deploymentNoLongerInstallsSkill": true,
+  "localRootAndCommandHelpTestedWithoutSshOnPath": true,
+  "singleToolSchemaVerified": "click",
+  "contractTestsPassed": 19,
+  "cliAccountOpenAndMoodleIdentityVerified": true,
+  "ownVerificationTabClosed": true,
+  "sourceDigest": "c28e7a441b4ab7d013ac82823c68c0a5308cca82d1a977a206fb2e160d9b0f61",
+  "verifiedSourceFiles": 51
+}

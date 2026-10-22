@@ -13,8 +13,27 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def help_text(topic=None):
+    catalog = json.loads((ROOT / 'config/cli-help.json').read_text())
+    if topic:
+        if topic not in catalog:
+            raise ValueError(f'Unknown help command: {topic}')
+        item = catalog[topic]
+        return '\n'.join([item['summary'], '', item['usage'], '', *item.get('notes', [])])
+    rows = [f"  {name:14} {item['summary']}" for name, item in catalog.items()]
+    return '\n'.join(['browserctl：现有 Chrome 的统一 CLI，无需加载 skill 或连接会话 MCP。',
+                      '', '用法：browserctl [选项] COMMAND [参数]', '', *rows, '',
+                      '选项：--machine MACHINE  --actor TASK  --account EMAIL_OR_ALIAS',
+                      '      --profile DIR（与 --account 互斥） --out NAME --timeout SECONDS',
+                      '      --identity NOTE  --credentials FILE', '',
+                      '按需帮助：browserctl help open / browserctl open --help',
+                      '参数契约：browserctl tools TOOL',
+                      '快速开始：browserctl --actor my-task --account cambridge open https://www.vle.cam.ac.uk/my/'])
+
+
 def arguments(targets):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, add_help=False)
+    parser.add_argument('-h', '--help', action='store_true')
     parser.add_argument('--machine', default='zengxiaoximac01', choices=list(targets))
     identity = os.environ.get('CLAUDE_CODE_SESSION_ID') or os.environ.get('TMUX_PANE') or str(os.getppid())
     actor = os.environ.get('CHROME_CONTROL_ACTOR', 'client-' + hashlib.sha256(identity.encode()).hexdigest()[:16])
@@ -26,10 +45,16 @@ def arguments(targets):
     parser.add_argument('--timeout', type=int, default=120)
     parser.add_argument('--identity', help='download: caller note, not website identity evidence')
     parser.add_argument('--credentials', default=str(Path.home() / '.config/cambridge/credentials'))
-    parser.add_argument('command', choices=['targets', 'start', 'stop', 'status', 'capabilities', 'tools', 'profiles', 'download', 'login', 'pages', 'open', 'identity', 'call', 'mcp'])
+    parser.add_argument('command', nargs='?', choices=['targets', 'start', 'stop', 'status', 'capabilities', 'tools', 'profiles', 'download', 'login', 'pages', 'open', 'identity', 'call', 'mcp', 'help'])
     parser.add_argument('tool', nargs='?')
     parser.add_argument('arguments', nargs='?', default='{}')
     args = parser.parse_args()
+    if args.help or args.command in (None, 'help'):
+        try:
+            print(help_text(args.tool if args.command == 'help' else args.command))
+        except ValueError as error:
+            parser.error(str(error))
+        parser.exit()
     validate(parser, args)
     return args
 

@@ -51,7 +51,16 @@ browserctl mcp
 
 UID 必须来自最新快照；页面 ID 必须来自 `pages`。文件路径是浏览器所在 Mac 的路径，不是 homevm 路径。跨 CLI 命令明确传同一个 actor；不要共用其他队员的 actor。
 
-不再注册全局 Claude Code MCP（`chrome-control` 于 2026-10-09 移除：近期会话实际靠 `browserctl call` 即可，MCP 还常连不上）；统一用 `browserctl` CLI；部署会将仓库 skill 链接到本机 `~/.claude/skills/chrome-control`，供后续会话发现按账号路由的操作说明（已有不同同名 skill 时拒绝覆盖）。
+**日常接口只有现成的 `browserctl` CLI，不依赖 skill，也不用在会话中注册／连接 MCP。** 底层继续复用官方 Chrome DevTools MCP daemon 作为浏览器引擎；`mcp` 子命令仅保留给需要该协议的客户端。2026-10-22 按用户要求撤掉额外安装的 skill，部署不再注册它。用法和参数按需查询，不向模型上下文灌一份操作手册：
+
+```sh
+browserctl --help
+browserctl help open          # 或 browserctl open --help，本地帮助不连接浏览器
+browserctl tools click        # 只看这个工具的参数 schema，不枚举全部
+browserctl help call
+```
+
+代码归属：CLI 参数／帮助在 `bin/browserctl` 与 `config/cli-help.json`；命令分发在 `interfaces/commands.mjs`；账号路由、绑定与身份验证在 application/domain/adapters 层。说明随源码测试、提交、部署，不另维护 skill 副本。
 
 `status` 只验 daemon，不证明已连接浏览器；`pages` 才真正连接。2026-10-08 Mac 首次连接曾在原生 Allow 弹窗处超时（osascript 无辅助功能权限）；2026-10-10 复验时已连接，`pages` 真实返回（`evidence/windows/mac-reverify.txt`）。需要在 Mac 正常确认；不改 TCC 数据库、不伪造批准、不重启 Chrome。连接保存在同一个官方 daemon 里；Chrome 或 daemon 断开后可能再次要求 Allow。工具请求 30 秒、外层命令 50 秒超时，不自动重发有副作用的操作。
 

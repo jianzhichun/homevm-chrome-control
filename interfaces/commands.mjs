@@ -14,7 +14,13 @@ export async function commandResult(control, command, tool, args, selector) {
       return { ...await control.daemon.status(), control: { protocolVersion: version.protocolVersion, sourceDigest: version.sourceDigest, capabilities: version.capabilities } };
     }
     case 'capabilities': return capabilities(root);
-    case 'tools': return control.tools();
+    case 'tools': {
+      const tools = await control.tools();
+      if (!tool) return tools;
+      const selected = tools.find(item => item.name === tool);
+      if (!selected) throw new Error(`Unknown tool ${tool}`);
+      return selected;
+    }
     case 'profiles': return control.profiles();
     case 'pages': return control.pages(selector);
     case 'open': return control.open(tool, selector);
