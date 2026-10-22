@@ -2,3 +2,4 @@ node_modules/
 __pycache__/
 logs/
 config/deployed-tools.json
+evidence/accounts-2026-10-22/private/

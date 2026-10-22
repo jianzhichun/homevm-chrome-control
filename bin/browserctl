@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified Chrome control over authenticated SSH; no raw debug port forwarding."""
+"""Chrome control over authenticated SSH, with explicit account/Profile routing."""
 import argparse
 import hashlib
 import json
@@ -13,69 +13,96 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def main():
-    targets = json.loads((ROOT / "config/targets.json").read_text())
+def arguments(targets):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--machine", default="zengxiaoximac01", choices=list(targets))
-    identity = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("TMUX_PANE") or str(os.getppid())
-    actor = os.environ.get("CHROME_CONTROL_ACTOR", "client-" + hashlib.sha256(identity.encode()).hexdigest()[:16])
-    parser.add_argument("--actor", default=actor)
-    parser.add_argument("--profile", metavar="DIR", help="Chrome profile directory (see: profiles) to target for pages/call/download")
-    parser.add_argument("--out", metavar="NAME", help="download: name the collected file in staging")
-    parser.add_argument("--timeout", type=int, default=120, help="download: give up after N seconds")
-    parser.add_argument("--identity", help="download: note about whose session the download relies on")
-    parser.add_argument("--credentials", default=str(Path.home() / ".config/cambridge/credentials"),
-                        help="login: owner's credentials file, sent over ssh stdin (never argv)")
-    parser.add_argument("command", choices=["targets", "start", "stop", "status", "tools", "profiles", "download", "login", "pages", "call", "mcp"])
-    parser.add_argument("tool", nargs="?")
-    parser.add_argument("arguments", nargs="?", default="{}")
+    parser.add_argument('--machine', default='zengxiaoximac01', choices=list(targets))
+    identity = os.environ.get('CLAUDE_CODE_SESSION_ID') or os.environ.get('TMUX_PANE') or str(os.getppid())
+    actor = os.environ.get('CHROME_CONTROL_ACTOR', 'client-' + hashlib.sha256(identity.encode()).hexdigest()[:16])
+    parser.add_argument('--actor', default=actor)
+    selector = parser.add_mutually_exclusive_group()
+    selector.add_argument('--profile', metavar='DIR', help='Explicit Chrome profile directory')
+    selector.add_argument('--account', metavar='EMAIL_OR_ALIAS', help='Resolve a registered Chrome email or private account alias')
+    parser.add_argument('--out', metavar='NAME', help='download: staged filename in a new isolated directory')
+    parser.add_argument('--timeout', type=int, default=120)
+    parser.add_argument('--identity', help='download: caller note, not website identity evidence')
+    parser.add_argument('--credentials', default=str(Path.home() / '.config/cambridge/credentials'))
+    parser.add_argument('command', choices=['targets', 'start', 'stop', 'status', 'capabilities', 'tools', 'profiles', 'download', 'login', 'pages', 'open', 'identity', 'call', 'mcp'])
+    parser.add_argument('tool', nargs='?')
+    parser.add_argument('arguments', nargs='?', default='{}')
     args = parser.parse_args()
-    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,100}", args.actor):
-        parser.error("Invalid actor")
-    if args.command == "targets":
+    validate(parser, args)
+    return args
+
+
+def validate(parser, args):
+    if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', args.actor):
+        parser.error('Invalid actor')
+    if (args.profile or args.account) and args.command not in ('pages', 'call', 'download', 'login', 'open', 'identity', 'mcp'):
+        parser.error('--account/--profile applies to pages, call, download, login, open, identity or mcp')
+    if args.command in ('call', 'open', 'identity', 'download') and not args.tool:
+        parser.error(f'{args.command} requires a tool, URL or page ID')
+    if args.command == 'download' and not args.out:
+        parser.error('download requires --out NAME')
+    if args.command in ('open', 'identity') and not (args.account or args.profile):
+        parser.error(f'{args.command} requires --account or --profile')
+    if args.command == 'login' and args.account:
+        parser.error('login is limited to the dedicated browser, not a personal account')
+    try:
+        if not isinstance(json.loads(args.arguments), dict):
+            parser.error('Arguments must be a JSON object')
+    except ValueError:
+        parser.error('Invalid JSON arguments')
+
+
+def remote_command(args, target):
+    env = [f'{key}={value}' for key, value in target.get('env', {}).items()]
+    remote = (['env', *env] if env else []) + [target['node'], target['root'] + '/interfaces/cli.mjs', args.actor]
+    data = json.loads(args.arguments)
+    if args.command == 'download':
+        data = {'filename': args.out, 'timeoutMs': args.timeout * 1000}
+        if args.identity:
+            data['identity'] = args.identity
+    selector = {'account': args.account} if args.account else {'profile': args.profile} if args.profile else None
+    if selector:
+        remote += ['scoped', args.command, json.dumps({'protocolVersion': 1, 'selector': selector, 'tool': args.tool, 'arguments': data})]
+    else:
+        remote += [args.command]
+        if args.tool:
+            remote += [args.tool]
+        if args.command in ('call', 'download'):
+            remote += [json.dumps(data)]
+    return ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2', target['ssh'], shlex.join(remote)]
+
+
+def execute(args, command):
+    timeout = {'mcp': None, 'download': args.timeout + 60, 'login': 420, 'open': 120}.get(args.command, 80)
+    stdin = Path(args.credentials).read_bytes() if args.command == 'login' else None
+    if args.command == 'mcp':
+        return subprocess.run(command, timeout=timeout).returncode
+    result = subprocess.run(command, timeout=timeout, input=stdin, capture_output=True)
+    if result.stdout:
+        sys.stdout.buffer.write(result.stdout)
+    if result.stderr:
+        sys.stderr.buffer.write(result.stderr)
+    if (args.account or args.profile) and result.returncode and b'Expected ' in result.stderr:
+        print('Chrome control deployment mismatch: remote lacks account-routing-v1; deploy chrome-control before account operations. No unscoped fallback was attempted.', file=sys.stderr)
+    return result.returncode
+
+
+def main():
+    targets = json.loads((ROOT / 'config/targets.json').read_text())
+    args = arguments(targets)
+    if args.command == 'targets':
         print(json.dumps(targets, indent=2))
         return 0
-    if args.command == "call":
-        if not args.tool:
-            parser.error("call requires TOOL and optional JSON arguments")
-        if not isinstance(json.loads(args.arguments), dict):
-            parser.error("Arguments must be a JSON object")
-    if args.profile and args.command not in ("pages", "call", "download", "login"):
-        parser.error("--profile applies to pages, call, download and login")
-    if args.command == "download":
-        if not args.tool:
-            parser.error("download requires a URL")
-        if not args.out:
-            parser.error("download requires --out NAME")
-    target = targets[args.machine]
-    env = [f"{key}={value}" for key, value in target.get("env", {}).items()]
-    if args.profile:
-        env.append(f"CHROME_CONTROL_PROFILE={args.profile}")
-    remote = (["env", *env] if env else []) + [target["node"], target["root"] + "/interfaces/cli.mjs", args.actor, args.command]
-    if args.command == "call":
-        remote += [args.tool, args.arguments]
-    if args.command == "login" and args.tool:
-        remote += [args.tool]
-    if args.command == "download":
-        # cli.mjs <actor> download <url> <json>: the URL rides in the tool
-        # slot; download options become its JSON arguments.
-        import json as _json
-        remote += [args.tool, _json.dumps({
-            "filename": args.out,
-            "timeoutMs": args.timeout * 1000,
-            **({"identity": args.identity} if getattr(args, "identity", None) else {}),
-        })]
-    ssh = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", target["ssh"], shlex.join(remote)]
     try:
-        ssh_timeout = {"mcp": None, "download": args.timeout + 60, "login": 420}.get(args.command, 50)
-        stdin = Path(args.credentials).read_bytes() if args.command == "login" else None
-        return subprocess.run(ssh, timeout=ssh_timeout, input=stdin).returncode
+        return execute(args, remote_command(args, targets[args.machine]))
     except subprocess.TimeoutExpired:
-        print(json.dumps({"error": f"Remote operation exceeded {ssh_timeout} seconds; no retry was sent"}), file=sys.stderr)
+        print(json.dumps({'error': 'Remote operation timed out; no retry was sent'}), file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         return 130
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

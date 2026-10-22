@@ -1,4 +1,4 @@
-import { stat, realpath, readdir, rename, mkdir, writeFile } from 'node:fs/promises';
+import { stat, realpath, readdir, rename, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, sep, dirname, basename, join } from 'node:path';
@@ -39,12 +39,20 @@ export class BrowserFiles {
   // Write bytes into a configured root (staging). Used by the download leg
   // when a publisher renders the PDF inline and the bytes come through the
   // page itself instead of Chrome's download pipeline.
+  async createDownloadPath(staging, filename) {
+    await this.path(dirname(staging));
+    await mkdir(staging, { recursive: true, mode: 0o700 });
+    const parent = await this.path(staging);
+    const directory = await mkdtemp(join(parent, 'download-'));
+    return join(directory, filename);
+  }
+
   async writeBuffer(to, buffer) {
     // The destination does not exist yet - realpath would throw ENOENT.
     // Contain the PARENT (which exists) and keep the caller's basename.
     const parent = await this.path(dirname(to));
     const dst = join(parent, basename(to));
-    await writeFile(dst, buffer);
+    await writeFile(dst, buffer, { flag: 'wx', mode: 0o600 });
     return dst;
   }
 

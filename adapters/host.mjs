@@ -7,6 +7,9 @@ import { OfficialDaemon } from './daemon.mjs';
 import { BrowserFiles } from './files.mjs';
 import { LogonTask } from './logon-task.mjs';
 import { ProfileInventory } from './profiles.mjs';
+import { AccountAliases } from './accounts.mjs';
+import { PageBindings } from './bindings.mjs';
+import { ProfileLauncher } from './profile-launcher.mjs';
 import { windowsChromeMajor } from './chrome-version.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,7 +32,10 @@ export function hostInstance(name, platform = process.platform, env = process.en
   // `discovered.browser` names the instance that actually serves those
   // profiles through its daemon.
   const profiles = discovered ? new ProfileInventory(discovered.userDataDir) : undefined;
-  return { profile, daemon, starter, profiles, files: new BrowserFiles(profile.roots(root)) };
+  const aliases = new AccountAliases(join(homedir(), '.config', 'chrome-control', 'accounts.json'));
+  const bindings = new PageBindings(join(profile.runtime, 'account-bindings'));
+  const launcher = discovered ? new ProfileLauncher(discovered.userDataDir, join(profile.tmp || profile.runtime, 'anchors'), platform) : undefined;
+  return { profile, daemon, starter, profiles, aliases, bindings, launcher, files: new BrowserFiles(profile.roots(root)) };
 }
 
 export function currentHost(platform = process.platform, env = process.env) {

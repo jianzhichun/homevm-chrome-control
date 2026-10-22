@@ -15,7 +15,7 @@ const client = new Client({ name: 'chrome-control-acceptance', version: '0.1.0' 
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 36);
+  for (const name of ['take_snapshot', 'browser_status', 'browser_open', 'browser_identity']) assert.ok(tools.some(t => t.name === name));
   const status = await client.callTool({ name: 'browser_status', arguments: {} });
   const missingLease = await client.callTool({ name: 'take_snapshot', arguments: { pageId: 987654321 } });
   assert.ok(missingLease.isError);

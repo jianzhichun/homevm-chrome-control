@@ -1,0 +1,34 @@
+import { downloadArtifact } from '../application/download.mjs';
+import { capabilities } from '../application/version.mjs';
+import { root } from '../adapters/host.mjs';
+import { signInCommand } from './login.mjs';
+import { serve } from './mcp.mjs';
+
+export async function commandResult(control, command, tool, args, selector) {
+  switch (command) {
+    case 'start': return control.start();
+    case 'boot': return control.boot();
+    case 'stop': return control.daemon.stop();
+    case 'status': {
+      const version = await capabilities(root);
+      return { ...await control.daemon.status(), control: { protocolVersion: version.protocolVersion, sourceDigest: version.sourceDigest, capabilities: version.capabilities } };
+    }
+    case 'capabilities': return capabilities(root);
+    case 'tools': return control.tools();
+    case 'profiles': return control.profiles();
+    case 'pages': return control.pages(selector);
+    case 'open': return control.open(tool, selector);
+    case 'identity': return control.call('browser_identity', { pageId: Number(tool) }, selector);
+    case 'call':
+      if (!tool) throw new Error('call requires TOOL and optional JSON arguments');
+      return control.call(tool, args, selector);
+    case 'download':
+      if (!tool) throw new Error('download requires URL and filename');
+      return downloadArtifact(control, { ...args, ...selector, url: tool });
+    case 'login':
+      if (selector?.account) throw new Error('Automated login is limited to the dedicated instance');
+      return signInCommand(control, { entry: tool, profile: selector?.profile });
+    case 'mcp': await serve(control, selector); return;
+    default: throw new Error(`Unknown command ${command}`);
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "capabilities": [
+    "account-routing-v1",
+    "managed-profile-tabs-v1",
+    "website-identity-v1",
+    "download-v1"
+  ],
+  "sourceDigest": "8ea7109572a266a56a31392cccfff6c5ba602651bb36ee00500661747a6afe4d",
+  "verifiedSourceFiles": 50,
+  "contractTestsPassed": 17,
+  "moodleIdentityMatched": true,
+  "emailAndAliasSelectorsVerified": true,
+  "crossProfileAndUnboundPageBlocked": true,
+  "scopedSshMcpVerified": true,
+  "pdfDownload": {
+    "bytes": 20606,
+    "sha256Matched": true,
+    "isolatedDirectory": true,
+    "coldActorAutoOpenAndClose": true
+  },
+  "secondProfileVerified": "blank task tab only",
+  "daemonPidUnchanged": true,
+  "chromePidUnchanged": false,
+  "chromeRestartObserved": {
+    "beforePid": 4805,
+    "afterPid": 12163,
+    "afterCommandSuffix": "--restart",
+    "afterStartLocal": "2026-10-22 13:54:56",
+    "cause": "Not established. No browser kill/restart command was issued by this task. Later acceptance ran after reconnection."
+  },
+  "temporaryDownloadsAndOwnedTestTabsCleaned": true,
+  "otherSessionsPagesNotClosed": true,
+  "windowsDeployment": "not performed",
+  "limitations": [
+    "Only Cambridge Moodle has a website identity adapter.",
+    "Existing unbound user tabs are not guessed or automatically taken over.",
+    "Personal-profile launching on other platforms is unsupported in this release.",
+    "Original Chrome Allow approval is not bypassed."
+  ],
+  "finalScopedSshMcpReverified": true,
+  "transientProbeFailure": {
+    "error": "Timeout waiting for daemon response",
+    "handling": "No automatic resend. Inspected binding/anchor state; no own residual binding or anchor file remained. Read-only account listing recovered; one explicit new probe then passed.",
+    "cause": "Not established; persistent daemon is shared with other active sessions."
+  },
+  "skillInstalledForFutureSessions": true
+}

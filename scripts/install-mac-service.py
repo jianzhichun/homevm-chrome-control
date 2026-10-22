@@ -23,10 +23,12 @@ expected = {
     'StandardOutPath': str(log / 'startup.log'),
     'StandardErrorPath': str(log / 'startup-error.log'),
 }
-if path.exists() and plistlib.loads(path.read_bytes()) != expected:
-    raise SystemExit('Existing launch agent differs; no overwrite performed')
-path.write_bytes(plistlib.dumps(expected))
-path.chmod(0o600)
+if path.exists():
+    if plistlib.loads(path.read_bytes()) != expected:
+        raise SystemExit('Existing launch agent differs; no overwrite performed')
+else:
+    path.write_bytes(plistlib.dumps(expected))
+    path.chmod(0o600)
 service = f'gui/{os.getuid()}/cn.imbecile.chrome-control'
 if subprocess.run(['launchctl', 'print', service], capture_output=True).returncode:
     subprocess.run(['launchctl', 'bootstrap', f'gui/{os.getuid()}', str(path)], check=True)

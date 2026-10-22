@@ -1,0 +1,7 @@
+{
+  "target": "zengxiaoximac01",
+  "rollback": "/Users/brook/workspace/chrome-control/evidence/rollback/20261022-143809-481126/source.tar.gz",
+  "sourceDigest": "8ea7109572a266a56a31392cccfff6c5ba602651bb36ee00500661747a6afe4d",
+  "verifiedFiles": 50,
+  "dependenciesReinstalled": false
+}

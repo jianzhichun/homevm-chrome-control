@@ -130,25 +130,14 @@ test('named browser instances: stable hex sessions, own runtime, autoConnect arg
   assert.deepEqual(win.profiles.userDataDir, 'C:\\Users\\PC\\AppData\\Local\\Google\\Chrome\\User Data');
 });
 
-test('profile discovery and SNSS attribution', async t => {
-  const { fromLocalState, urlsFromSnss, attribute, normalizeUrl } = await import('../domain/profiles.mjs');
+test('profile discovery reads registration metadata without browsing history', async () => {
+  const { fromLocalState } = await import('../domain/profiles.mjs');
   const state = JSON.stringify({ profile: { info_cache: {
     'Profile 1': { name: 'Brook', gaia_name: 'Brook', user_name: 'a@gmail.com', active_time: 20 },
     Default: { name: 'BrookZeng', gaia_name: 'brook zeng', user_name: 'b@163.com', active_time: 10 },
   } } });
   assert.deepEqual(fromLocalState(state).map(p => p.dir), ['Profile 1', 'Default']);
   assert.equal(fromLocalState('{}').length, 0);
-  const snss = Buffer.from('junk\x01https://example.com/a?x=1&y=2\x02more\x01https://portal.org/page\x00');
-  const urls = [...urlsFromSnss(snss)];
-  assert.deepEqual(urls, ['https://example.com/a', 'https://portal.org/page']);
-  assert.equal(normalizeUrl('https://x.test/p/?q=1#f'), 'https://x.test/p');
-  const sets = new Map([['Profile 1', new Set(urls)], ['Default', new Set(['https://portal.org/page', 'https://example.com/z'])]]);
-  const out = attribute([{ pageId: 1, url: 'https://example.com/a?x=9' }, { pageId: 2, url: 'https://portal.org/page' }, { pageId: 3, url: '' }], sets);
-  assert.equal(out[0].profile, 'Profile 1');
-  assert.deepEqual(out[0].ambiguous, []);
-  assert.deepEqual(out[1].ambiguous, ['Profile 1', 'Default']);
-  assert.equal(out[1].profile, null);
-  assert.equal(out[2].profile, null);
 });
 
 test('pages parse from list_pages text and route by profile', async t => {
@@ -163,22 +152,20 @@ test('pages parse from list_pages text and route by profile', async t => {
   const seen = [];
   // hosts.json carries profile discovery at host level; `browser` names the
   // instance whose daemon serves those profiles.
-  const inventory = tag => ({
-    list: async () => [{ dir: 'Profile 1', name: 'Brook' }],
-    urlSets: async () => new Map(tag === 'real' ? [['Profile 1', new Set(['https://a.test/x'])]] : []),
-  });
+  const inventory = () => ({ list: async () => [{ dir: 'Profile 1', name: 'Brook' }] });
   const makeHost = tag => ({
     profile: { runtime: `/tmp/rt-${tag}`, mode: tag === 'real' ? 'autoConnect' : 'dedicated',
       profiles: { userDataDir: '/ud', browser: 'real' } },
     daemon: { call: async (n, a) => { seen.push([tag, n, a]); return {}; }, status: async () => ({ running: true, pid: 7 }) },
     starter: { start: async () => ({}) },
-    profiles: inventory(tag),
+    profiles: inventory(),
+    bindings: { get: async () => null },
     files: {},
   });
   const real = makeHost('real');
   const control = new BrowserControl('t', makeHost('default'), await fixture(t), () => real);
   const routed = await control.pages('Profile 1');
-  assert.equal(routed.profile, 'Profile 1');
+  assert.equal(routed.account.dir, 'Profile 1');
   assert.equal(seen[0][0], 'real');
   await assert.rejects(control.pages('Ghost'), /Unknown profile directory/);
   assert.equal(DEDICATED_PROFILE, 'chrome-control');
@@ -188,7 +175,7 @@ const ok = v => ({ content: [{ type: 'text', text: 'Script ran on page and retur
 const listing = lines => ({ content: [{ type: 'text', text: ['## Pages', ...lines].join('\n') }] });
 
 // A browser instance whose daemon answers from `answer(name, args)`.
-function fakeInstance(mode, answer, urlSets = new Map()) {
+function fakeInstance(mode, answer) {
   const calls = [];
   const staged = {};
   return {
@@ -197,8 +184,9 @@ function fakeInstance(mode, answer, urlSets = new Map()) {
       profile: { runtime: '/tmp/rt', mode, staging: '/stage', profiles: { userDataDir: '/ud', browser: 'real' } },
       daemon: { status: async () => ({ running: true, pid: 9 }), call: async (n, a) => { calls.push([n, a]); return answer(n, a); } },
       starter: {},
-      profiles: { list: async () => [{ dir: 'Profile 1' }, { dir: 'cc-test' }], urlSets: async () => urlSets },
+      profiles: { list: async () => [{ dir: 'Profile 1' }, { dir: 'cc-test' }] },
       files: {
+        createDownloadPath: async (parent, name) => `${parent}/isolated/${name}`,
         writeBuffer: async (path, buf) => { staged[path] = buf; return path; },
         describe: async path => ({ bytes: staged[path].length, sha256: 'h' }),
       },
@@ -231,13 +219,6 @@ test('download leg: donor stays inside its profile; dedicated opens and closes i
   const c2 = new BrowserControl('dl', gone.host, await fixture(t), () => { throw new Error('no other instance'); });
   await assert.rejects(downloadArtifact(c2, { url: 'https://x.test/a.pdf', filename: 'a.pdf' }), /No session on https:\/\/x.test/);
   assert.ok(gone.calls.some(c => c[0] === 'close_page'));
-
-  // Owner's Chrome: a same-origin tab of ANOTHER profile is never driven and no tab is opened.
-  const urls = new Map([['Profile 1', new Set(['https://x.test/p'])]]);
-  const real = fakeInstance('autoConnect', n => (n === 'list_pages' ? listing(['5: P (https://x.test/p)']) : ok(null)), urls);
-  const c3 = new BrowserControl('dl', ded.host, await fixture(t), () => real.host);
-  await assert.rejects(downloadArtifact(c3, { url: 'https://x.test/a.pdf', filename: 'a.pdf', profile: 'cc-test' }), /never opened in an owner/);
-  assert.deepEqual(real.calls.map(c => c[0]), ['list_pages']);
 
   assert.equal(pickDonor([{ pageId: 5, url: 'https://x.test/p', profile: null }], 'https://x.test/a.pdf', 'cc-test'), null);
   assert.equal(pickDonor([{ pageId: 6, url: 'https://x.test/q', profile: 'cc-test' }], 'https://x.test/a.pdf', 'cc-test').pageId, 6);

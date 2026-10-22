@@ -1,0 +1,116 @@
+
+> homevm-chrome-control@0.1.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: email and alias resolve afresh, share identity policy, and reject ambiguous accounts
+ok 1 - email and alias resolve afresh, share identity policy, and reject ambiguous accounts
+  ---
+  duration_ms: 0.768704
+  type: 'test'
+  ...
+# Subtest: anchor matching retains local URL identity and never picks a newest duplicate
+ok 2 - anchor matching retains local URL identity and never picks a newest duplicate
+  ---
+  duration_ms: 0.370887
+  type: 'test'
+  ...
+# Subtest: managed open binds the actual new tab; same-URL history, wrong accounts and new generations cannot authorize actions
+ok 3 - managed open binds the actual new tab; same-URL history, wrong accounts and new generations cannot authorize actions
+  ---
+  duration_ms: 8.952585
+  type: 'test'
+  ...
+# Subtest: native launcher requires existing Chrome and passes an exact Profile selector without a shell
+ok 4 - native launcher requires existing Chrome and passes an exact Profile selector without a shell
+  ---
+  duration_ms: 1.250985
+  type: 'test'
+  ...
+# Subtest: scoped new_page uses the same managed route, not upstream default-profile creation
+ok 5 - scoped new_page uses the same managed route, not upstream default-profile creation
+  ---
+  duration_ms: 3.412779
+  type: 'test'
+  ...
+# Subtest: account download checks website identity before fetch and writes each artifact to its own directory
+ok 6 - account download checks website identity before fetch and writes each artifact to its own directory
+  ---
+  duration_ms: 23.412544
+  type: 'test'
+  ...
+# Subtest: page ownership excludes another actor, expires and releases
+ok 7 - page ownership excludes another actor, expires and releases
+  ---
+  duration_ms: 6.32783
+  type: 'test'
+  ...
+# Subtest: file verification rejects escapes and partial files, hashes a stable file
+ok 8 - file verification rejects escapes and partial files, hashes a stable file
+  ---
+  duration_ms: 1006.651433
+  type: 'test'
+  ...
+# Subtest: unknown tools and missing page claims fail before touching the browser
+ok 9 - unknown tools and missing page claims fail before touching the browser
+  ---
+  duration_ms: 5.787018
+  type: 'test'
+  ...
+# Subtest: host profiles: macOS args unchanged, Windows drives a dedicated profile over a pipe
+ok 10 - host profiles: macOS args unchanged, Windows drives a dedicated profile over a pipe
+  ---
+  duration_ms: 1.337621
+  type: 'test'
+  ...
+# Subtest: logon task start runs the task once and fails clearly if no daemon appears
+ok 11 - logon task start runs the task once and fails clearly if no daemon appears
+  ---
+  duration_ms: 30.202541
+  type: 'test'
+  ...
+# Subtest: boot is a no-op while the daemon answers and starts it otherwise
+ok 12 - boot is a no-op while the daemon answers and starts it otherwise
+  ---
+  duration_ms: 0.769756
+  type: 'test'
+  ...
+# Subtest: named browser instances: stable hex sessions, own runtime, autoConnect args
+ok 13 - named browser instances: stable hex sessions, own runtime, autoConnect args
+  ---
+  duration_ms: 0.531692
+  type: 'test'
+  ...
+# Subtest: profile discovery reads registration metadata without browsing history
+ok 14 - profile discovery reads registration metadata without browsing history
+  ---
+  duration_ms: 0.270325
+  type: 'test'
+  ...
+# Subtest: pages parse from list_pages text and route by profile
+ok 15 - pages parse from list_pages text and route by profile
+  ---
+  duration_ms: 1.257794
+  type: 'test'
+  ...
+# Subtest: download leg: donor stays inside its profile; dedicated opens and closes its own tab
+ok 16 - download leg: donor stays inside its profile; dedicated opens and closes its own tab
+  ---
+  duration_ms: 9.688988
+  type: 'test'
+  ...
+# Subtest: sign-in: TOTP per RFC 6238, credentials parsed, a rejected credential is never resubmitted
+ok 17 - sign-in: TOTP per RFC 6238, credentials parsed, a rejected credential is never resubmitted
+  ---
+  duration_ms: 1.64683
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1104.812041
