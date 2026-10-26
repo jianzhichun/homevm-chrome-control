@@ -19,6 +19,24 @@ test('Profile sessions persist across actors; snapshot UIDs retain iframe identi
   assert.throws(() => pageActionScript('click', { pageId: 4, uid: 'invalid' }), /fresh take_snapshot/);
 });
 
+test('native input activates its page in the same invocation while reads stay unfocused', async () => {
+  const calls = [];
+  const context = { pages: () => [page] };
+  const page = {
+    context: () => context,
+    isClosed: () => false,
+    bringToFront: async () => calls.push('focus'),
+    locator: () => ({ click: async () => calls.push('click') }),
+    evaluate: async () => calls.push('read'),
+  };
+  const run = (name, args) => Function('return (' + pageActionScript(name, { pageId: 1, ...args }) + ')')()(page);
+  await run('click', { uid: '0_3' });
+  assert.deepEqual(calls, ['focus', 'click']);
+  calls.length = 0;
+  await run('evaluate_script', { function: '() => document.title' });
+  assert.deepEqual(calls, ['read']);
+});
+
 test('pairing is Profile-specific, private and requires the installed official extension', async t => {
   const root = await mkdtemp(join(homedir(), 'tmp/chrome-pairing-'));
   t.after(() => rm(root, { recursive: true, force: true }));

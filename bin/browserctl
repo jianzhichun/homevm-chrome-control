@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chrome control over authenticated SSH, with explicit account/Profile routing."""
+"""Chrome control locally or over authenticated SSH, with explicit account/Profile routing."""
 import argparse
 import hashlib
 import json
@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 
@@ -34,7 +35,7 @@ def help_text(topic=None):
 def arguments(targets):
     parser = argparse.ArgumentParser(description=__doc__, add_help=False)
     parser.add_argument('-h', '--help', action='store_true')
-    parser.add_argument('--machine', default='zengxiaoximac01', choices=list(targets))
+    parser.add_argument('--machine', default=os.environ.get('CHROME_CONTROL_MACHINE', 'zengxiaoximac01'), choices=list(targets))
     identity = os.environ.get('CLAUDE_CODE_SESSION_ID') or os.environ.get('TMUX_PANE') or str(os.getppid())
     actor = os.environ.get('CHROME_CONTROL_ACTOR', 'client-' + hashlib.sha256(identity.encode()).hexdigest()[:16])
     parser.add_argument('--actor', default=actor)
@@ -101,6 +102,8 @@ def remote_command(args, target):
             remote += [args.tool]
         if args.command in ('call', 'download'):
             remote += [json.dumps(data)]
+    if target.get('transport') == 'local':
+        return remote
     return ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2', target['ssh'], shlex.join(remote)]
 
 
@@ -129,13 +132,15 @@ def execute(args, command):
 
 def main():
     targets = json.loads((ROOT / 'config/targets.json').read_text())
+    targets.setdefault('local', {'transport': 'local', 'os': sys.platform,
+                                 'node': shutil.which('node') or 'node', 'root': str(ROOT)})
     args = arguments(targets)
     if args.command == 'targets':
         print(json.dumps(targets, indent=2))
         return 0
     try:
         return execute(args, remote_command(args, targets[args.machine]))
-    except ValueError as error:
+    except (OSError, ValueError) as error:
         print(json.dumps({'error': str(error)}), file=sys.stderr)
         return 1
     except subprocess.TimeoutExpired:

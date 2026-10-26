@@ -14,6 +14,8 @@ Mac 与 Windows 使用同一套会话、账号路由、租约、文件和业务�
 
 `config/targets.json` 描述 SSH/Node/项目位置，`config/hosts.json` 描述平台、实例、文件根和启动方式。新增机器只增加配置与必要的平台适配，不复制一套控制实现。
 
+客户端在浏览器本机时，用内置目标 `--machine local`，从当前代码目录运行 PATH 中的 Node，复用同一命令协议而不经 SSH，无需添加机器专属路径。`CHROME_CONTROL_MACHINE` 可指定本机默认目标，显式 `--machine` 优先；目标配置也可显式设置 `"transport": "local"` 覆盖本机路径，不带 `transport` 的目标仍经 SSH。
+
 ## 使用
 
 ```sh

@@ -20,9 +20,13 @@ export function listPagesScript() {
   return `async page=>{${pageRegistry()}return Promise.all([...r.pages].map(async([pageId,p])=>({pageId,url:p.url(),title:await p.title()})));}`;
 }
 
+const renderActions = new Set(['click', 'click_at', 'hover', 'fill', 'fill_form', 'press_key', 'type_text', 'upload_file', 'take_screenshot']);
+
 export function pageActionScript(name, args) {
   const json = JSON.stringify;
-  const prefix = `async page=>{${pageRegistry()}const p=r.pages.get(${json(args.pageId)});if(!p)throw Error('Unknown or closed pageId');`;
+  // Activate inside the input invocation, not in a separate call another tab can supersede.
+  const focus = renderActions.has(name) ? 'await p.bringToFront();' : '';
+  const prefix = `async page=>{${pageRegistry()}const p=r.pages.get(${json(args.pageId)});if(!p)throw Error('Unknown or closed pageId');${focus}`;
   const options = json({ timeout: args.timeout || 25_000 });
   const locator = uid => {
     const old = typeof uid === 'string' && uid.match(/^(\d+)_(\d+)$/);
