@@ -12,9 +12,3 @@ export function parsePageLines(raw) {
     return { pageId: Number(m[1]), title, url };
   });
 }
-
-export function uniqueAnchor(pages, url) {
-  const matches = pages.filter(p => p.url === url);
-  if (matches.length > 1) throw new Error('Multiple tabs have the one-time anchor; refusing to guess');
-  return matches[0];
-}

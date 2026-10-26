@@ -45,7 +45,7 @@ def arguments(targets):
     parser.add_argument('--timeout', type=int, default=120)
     parser.add_argument('--identity', help='download: caller note, not website identity evidence')
     parser.add_argument('--credentials', default=str(Path.home() / '.config/cambridge/credentials'))
-    parser.add_argument('command', nargs='?', choices=['targets', 'start', 'stop', 'status', 'capabilities', 'tools', 'profiles', 'download', 'login', 'pages', 'open', 'identity', 'call', 'mcp', 'help'])
+    parser.add_argument('command', nargs='?', choices=['targets', 'start', 'stop', 'status', 'capabilities', 'tools', 'profiles', 'pair', 'download', 'login', 'pages', 'open', 'identity', 'call', 'help'])
     parser.add_argument('tool', nargs='?')
     parser.add_argument('arguments', nargs='?', default='{}')
     args = parser.parse_args()
@@ -62,8 +62,8 @@ def arguments(targets):
 def validate(parser, args):
     if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', args.actor):
         parser.error('Invalid actor')
-    if (args.profile or args.account) and args.command not in ('pages', 'call', 'download', 'login', 'open', 'identity', 'mcp'):
-        parser.error('--account/--profile applies to pages, call, download, login, open, identity or mcp')
+    if (args.profile or args.account) and args.command not in ('start', 'stop', 'status', 'pair', 'pages', 'call', 'download', 'login', 'open', 'identity'):
+        parser.error('--account/--profile is not supported for this command')
     if args.command in ('call', 'open', 'identity', 'download') and not args.tool:
         parser.error(f'{args.command} requires a tool, URL or page ID')
     if args.command == 'download' and not args.out:
@@ -80,7 +80,12 @@ def validate(parser, args):
 
 
 def remote_command(args, target):
-    env = [f'{key}={value}' for key, value in target.get('env', {}).items()]
+    environment = dict(target.get('env', {}))
+    for key in ('CHROME_CONTROL_MODE', 'CHROME_CONTROL_DRIVER', 'CHROME_CONTROL_RUNTIME',
+                'CHROME_CONTROL_USER_DATA_DIR', 'CHROME_CONTROL_INSTANCE', 'CHROME_CONTROL_START_TASK'):
+        if key in os.environ:
+            environment[key] = os.environ[key]
+    env = [f'{key}={value}' for key, value in environment.items()]
     remote = (['env', *env] if env else []) + [target['node'], target['root'] + '/interfaces/cli.mjs', args.actor]
     data = json.loads(args.arguments)
     if args.command == 'download':
@@ -100,10 +105,18 @@ def remote_command(args, target):
 
 
 def execute(args, command):
-    timeout = {'mcp': None, 'download': args.timeout + 60, 'login': 420, 'open': 120}.get(args.command, 80)
+    timeout = {'download': args.timeout + 60, 'login': 420, 'open': 120}.get(args.command, 80)
     stdin = Path(args.credentials).read_bytes() if args.command == 'login' else None
-    if args.command == 'mcp':
-        return subprocess.run(command, timeout=timeout).returncode
+    if args.command == 'pair':
+        if not (args.account or args.profile):
+            raise ValueError('pair requires --account or --profile')
+        if sys.stdin.isatty():
+            import getpass
+            stdin = getpass.getpass('官方扩展 Profile token（不回显）：').encode()
+        else:
+            stdin = sys.stdin.buffer.read(2049)
+        if len(stdin) > 2048:
+            raise ValueError('Pairing token input is too large')
     result = subprocess.run(command, timeout=timeout, input=stdin, capture_output=True)
     if result.stdout:
         sys.stdout.buffer.write(result.stdout)
@@ -122,6 +135,9 @@ def main():
         return 0
     try:
         return execute(args, remote_command(args, targets[args.machine]))
+    except ValueError as error:
+        print(json.dumps({'error': str(error)}), file=sys.stderr)
+        return 1
     except subprocess.TimeoutExpired:
         print(json.dumps({'error': 'Remote operation timed out; no retry was sent'}), file=sys.stderr)
         return 1

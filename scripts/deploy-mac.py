@@ -25,7 +25,7 @@ with tarfile.open(backup/'source.tar.gz','w:gz') as archive:
  for name in ['adapters','application','domain','interfaces','config','bin','scripts','package.json','package-lock.json','apply.sh','README.md']:
   if (root/name).exists():archive.add(root/name,arcname=name,filter=lambda info:None if '__pycache__' in info.name else info)
 lock=root/'package-lock.json'
-print(json.dumps({'backup':str(backup/'source.tar.gz'),'lockHash':hashlib.sha256(lock.read_bytes()).hexdigest(),'installed':(root/'node_modules/chrome-devtools-mcp/package.json').exists()}))
+print(json.dumps({'backup':str(backup/'source.tar.gz'),'lockHash':hashlib.sha256(lock.read_bytes()).hexdigest(),'installed':(root/'node_modules/@playwright/cli/package.json').exists()}))
 '''
     return json.loads(remote(target, ['python3', '-I', '-', target['root']], script))
 
@@ -34,6 +34,8 @@ def install(target, before):
     lock_hash = hashlib.sha256((ROOT / 'package-lock.json').read_bytes()).hexdigest()
     if before['lockHash'] != lock_hash or not before['installed']:
         remote(target, ['env', 'PATH=/opt/homebrew/bin:/usr/bin:/bin', '/opt/homebrew/bin/npm', '--prefix', target['root'], 'ci', '--ignore-scripts', '--no-audit', '--no-fund'])
+    remote(target, [target['node'], target['root'] + '/scripts/prune-obsolete.mjs'])
+    remote(target, [target['node'], target['root'] + '/scripts/patch-playwright-opener.mjs'])
     remote(target, ['python3', '-I', target['root'] + '/scripts/install-mac-service.py'])
 
 

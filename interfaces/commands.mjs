@@ -2,16 +2,16 @@ import { downloadArtifact } from '../application/download.mjs';
 import { capabilities } from '../application/version.mjs';
 import { root } from '../adapters/host.mjs';
 import { signInCommand } from './login.mjs';
-import { serve } from './mcp.mjs';
+import { pairExtension } from './pair-extension.mjs';
 
 export async function commandResult(control, command, tool, args, selector) {
   switch (command) {
-    case 'start': return control.start();
-    case 'boot': return control.boot();
-    case 'stop': return control.daemon.stop();
+    case 'start': return control.start(selector);
+    case 'boot': return control.boot(selector);
+    case 'stop': return control.stop(selector);
     case 'status': {
       const version = await capabilities(root);
-      return { ...await control.daemon.status(), control: { protocolVersion: version.protocolVersion, sourceDigest: version.sourceDigest, capabilities: version.capabilities } };
+      return { ...await control.status(selector), control: { protocolVersion: version.protocolVersion, sourceDigest: version.sourceDigest, capabilities: version.capabilities } };
     }
     case 'capabilities': return capabilities(root);
     case 'tools': {
@@ -34,7 +34,7 @@ export async function commandResult(control, command, tool, args, selector) {
     case 'login':
       if (selector?.account) throw new Error('Automated login is limited to the dedicated instance');
       return signInCommand(control, { entry: tool, profile: selector?.profile });
-    case 'mcp': await serve(control, selector); return;
+    case 'pair': return pairExtension(control, selector);
     default: throw new Error(`Unknown command ${command}`);
   }
 }

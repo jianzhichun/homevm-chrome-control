@@ -8,7 +8,6 @@ import { PageBindings } from '../adapters/bindings.mjs';
 import { BrowserFiles } from '../adapters/files.mjs';
 import { ProfileLauncher } from '../adapters/profile-launcher.mjs';
 import { resolveAccount } from '../domain/accounts.mjs';
-import { parsePageLines, uniqueAnchor } from '../domain/pages.mjs';
 import { downloadArtifact } from '../application/download.mjs';
 
 const profiles = [{ dir: 'Profile 1', user: 'a@example.test' }, { dir: 'Default', user: 'b@example.test' }];
@@ -24,17 +23,18 @@ async function browser(t) {
   const pages = new Map([[1, 'https://www.vle.cam.ac.uk/my/']]);
   const pdf = Buffer.from('%PDF-1.7 contract');
   const host = {
-    profile: { runtime: root, staging: join(root, 'staging'), profiles: { browser: 'default' } },
+    profile: { runtime: root, mode: 'extension', staging: join(root, 'staging'), profiles: { browser: 'default' } },
     profiles: { list: async () => profiles }, aliases: { read: async () => aliases },
     bindings: new PageBindings(join(root, 'bindings')), files: new BrowserFiles([root]),
-    launcher: { open: async dir => {
-      events.push(['launch', dir]);
-      const id = Math.max(...pages.keys()) + 1;
-      const url = `file://${root}/random-${id}.html`;
-      pages.set(id, url);
-      return { url, dispose: async () => {} };
-    } },
-    daemon: { status: async () => ({ running: true, pid, startDate: 'start' }), call: async (name, args) => {
+    starter: { start: async () => ({ running: true }) },
+    daemon: {
+      openPage: async url => {
+        events.push(['open', url]);
+        const pageId = Math.max(...pages.keys()) + 1;
+        pages.set(pageId, url);
+        return { pageId, url };
+      },
+      status: async () => ({ running: true, pid, startDate: 'start' }), call: async (name, args) => {
       events.push([name, args]);
       if (name === 'list_pages') return { content: [{ type: 'text', text: '## Pages\n' + [...pages].map(([id, url]) => `${id}: Page (${url})`).join('\n') }] };
       if (name === 'navigate_page') pages.set(args.pageId, args.url);
@@ -57,13 +57,6 @@ test('email and alias resolve afresh, share identity policy, and reject ambiguou
   assert.deepEqual(resolveAccount(profiles, 'A@EXAMPLE.TEST', aliases).sites, sites);
   assert.throws(() => resolveAccount([...profiles, profiles[0]], 'school', aliases), /Ambiguous/);
   assert.throws(() => resolveAccount(profiles, 'ghost', aliases), /not found/);
-});
-
-test('anchor matching retains local URL identity and never picks a newest duplicate', () => {
-  const url = 'file:///Users/test/anchor-unique.html';
-  const parsed = parsePageLines(`## Pages\n3: Anchor (${url}) [selected]\n4: about:blank`);
-  assert.equal(uniqueAnchor(parsed, url).pageId, 3);
-  assert.throws(() => uniqueAnchor([...parsed, { pageId: 99, url }], url), /Multiple/);
 });
 
 test('managed open binds the actual new tab; same-URL history, wrong accounts and new generations cannot authorize actions', async t => {
@@ -101,7 +94,7 @@ test('native launcher requires existing Chrome and passes an exact Profile selec
 test('scoped new_page uses the same managed route, not upstream default-profile creation', async t => {
   const b = await browser(t);
   await b.control.call('new_page', { url: 'about:blank' }, { account: 'school' });
-  assert.equal(b.events.filter(([n]) => n === 'launch').length, 1);
+  assert.equal(b.events.filter(([n]) => n === 'open').length, 1);
   assert.equal(b.events.filter(([n]) => n === 'new_page').length, 0);
 });
 

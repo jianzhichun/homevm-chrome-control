@@ -1,35 +1,28 @@
 #!/usr/bin/env python3
-"""Install a login bootstrap for the official persistent Chrome control daemon."""
+"""Remove the retired login bootstrap; paired browsers connect on demand via CLI."""
+from datetime import datetime, timezone
+import json
+import os
 from pathlib import Path
 import plistlib
 import subprocess
-import os
+import uuid
 
-root = Path.home() / 'workspace/chrome-control'
+root = Path(__file__).resolve().parent.parent
 path = Path.home() / 'Library/LaunchAgents/cn.imbecile.chrome-control.plist'
-path.parent.mkdir(parents=True, exist_ok=True)
-log = root / 'logs'
-log.mkdir(mode=0o700, exist_ok=True)
-expected = {
-    'Label': 'cn.imbecile.chrome-control',
-    'ProgramArguments': ['/opt/homebrew/bin/node', str(root / 'interfaces/cli.mjs'), 'service', 'start'],
-    'WorkingDirectory': str(root),
-    'RunAtLoad': True,
-    'EnvironmentVariables': {
-        'PATH': '/opt/homebrew/bin:/usr/bin:/bin',
-        'CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS': '1',
-        'CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS': '1',
-    },
-    'StandardOutPath': str(log / 'startup.log'),
-    'StandardErrorPath': str(log / 'startup-error.log'),
-}
-if path.exists():
-    if plistlib.loads(path.read_bytes()) != expected:
-        raise SystemExit('Existing launch agent differs; no overwrite performed')
-else:
-    path.write_bytes(plistlib.dumps(expected))
-    path.chmod(0o600)
 service = f'gui/{os.getuid()}/cn.imbecile.chrome-control'
-if subprocess.run(['launchctl', 'print', service], capture_output=True).returncode:
-    subprocess.run(['launchctl', 'bootstrap', f'gui/{os.getuid()}', str(path)], check=True)
-print(service)
+backup = None
+if path.exists():
+    previous = path.read_bytes()
+    definition = plistlib.loads(previous)
+    if definition.get('Label') != 'cn.imbecile.chrome-control' or str(root / 'interfaces/cli.mjs') not in definition.get('ProgramArguments', []):
+        raise SystemExit('Existing launch agent is not this deployment; no change performed')
+    directory = root / 'evidence/retired-bootstrap' / (datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:8])
+    directory.mkdir(parents=True, mode=0o700)
+    backup = directory / path.name
+    backup.write_bytes(previous)
+    backup.chmod(0o600)
+    if not subprocess.run(['launchctl', 'print', service], capture_output=True).returncode:
+        subprocess.run(['launchctl', 'bootout', service], check=True)
+    path.unlink()
+print(json.dumps({'startup': 'on-demand-paired-cli', 'retiredBootstrapBackup': str(backup) if backup else None}))

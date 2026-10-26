@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { setTimeout } from 'node:timers/promises';
+import { windowsTool } from './windows-tools.mjs';
 
 const run = promisify(execFile);
 
@@ -20,7 +21,12 @@ export class LogonTask {
   async start() {
     const current = await this.daemon.status();
     if (current.running) return current;
-    await this.exec('schtasks.exe', ['/Run', '/TN', this.name], { windowsHide: true });
+    await this.daemon.prepareStart?.();
+    if (this.daemon.accountProfile) {
+      const quote = value => "'" + value.replaceAll("'", "''") + "'";
+      const script = `$s=New-Object -ComObject Schedule.Service;$s.Connect();$null=$s.GetFolder('\\').GetTask(${quote(this.name)}).Run(@(${quote(this.daemon.accountProfile)}))`;
+      await this.exec(windowsTool('powershell.exe'), ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true });
+    } else await this.exec(windowsTool('schtasks.exe'), ['/Run', '/TN', this.name], { windowsHide: true });
     const deadline = Date.now() + this.timeout;
     while (Date.now() < deadline) {
       await setTimeout(this.interval);

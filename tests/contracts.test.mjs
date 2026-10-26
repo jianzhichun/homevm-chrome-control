@@ -69,23 +69,20 @@ test('unknown tools and missing page claims fail before touching the browser', a
   assert.equal(calls, 1);
 });
 
-test('host profiles: macOS args unchanged, Windows drives a dedicated profile over a pipe', () => {
+test('host profiles configure the same CLI with paired or dedicated connections', () => {
   const specs = JSON.parse(readFileSync(new URL('../config/hosts.json', import.meta.url)));
   const mac = HostProfile.select(specs, { platform: 'darwin', home: '/Users/brook' });
-  assert.deepEqual(mac.daemonArgs('/Users/brook/workspace/chrome-control'), ['--no-usage-statistics', '--no-performance-crux',
-    '--redactNetworkHeaders', '--experimentalVision', '--workspace', '/Users/brook/workspace/chrome-control',
-    '--workspace', '/Users/brook/Downloads', '--workspace', '/Users/brook/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil', '--autoConnect']);
+  assert.equal(mac.mode, 'extension');
   assert.equal(mac.runtime, '/Users/brook/Library/Caches/chrome-control/runtime');
   const win = HostProfile.select(specs, { platform: 'win32', home: 'C:\\Users\\PC', env: { LOCALAPPDATA: 'C:\\Users\\PC\\AppData\\Local' } });
-  const args = win.daemonArgs('C:\\Users\\PC\\workspace\\chrome-control', { chromeMajor: 155 });
-  assert.equal(args[args.indexOf('--userDataDir') + 1], 'C:\\Users\\PC\\AppData\\Local\\chrome-control\\profile');
-  assert.ok(args.includes('--headless') && !args.includes('--autoConnect'));
-  assert.ok(!args.some(a => /remote-debugging-port|browserUrl/.test(a)));
+  const config = win.playwrightConfig({ chromeMajor: 155 });
+  assert.equal(config.browser.userDataDir, 'C:\\Users\\PC\\AppData\\Local\\chrome-control\\profile');
+  assert.equal(config.browser.launchOptions.headless, true);
+  assert.ok(config.browser.launchOptions.ignoreDefaultArgs.includes('--use-mock-keychain'));
   assert.ok(win.wants('chromeMajor') && !mac.wants('chromeMajor'));
-  assert.throws(() => win.daemonArgs('C:\\x'), /chromeMajor/);
-  const ua = win.daemonArgs('C:\\x', { chromeMajor: 155 }).find(a => a.startsWith('--chromeArg=--user-agent='));
-  assert.match(ua, /Chrome\/155\.0\.0\.0 Safari/);
-  assert.doesNotMatch(ua, /Headless/);
+  assert.throws(() => win.playwrightConfig(), /chromeMajor/);
+  assert.match(config.browser.launchOptions.args[0], /Chrome\/155\.0\.0\.0 Safari/);
+  assert.doesNotMatch(JSON.stringify(config), /remote-debugging-port|autoConnect|HeadlessChrome/);
   assert.throws(() => HostProfile.select(specs, { platform: 'win32', home: 'C:\\Users\\PC', env: {} }).runtime, /LOCALAPPDATA/);
   assert.throws(() => HostProfile.select(specs, { platform: 'aix', home: '/' }), /Unsupported/);
 });
@@ -108,26 +105,20 @@ test('boot is a no-op while the daemon answers and starts it otherwise', async t
   assert.equal(starts, 1);
 });
 
-test('named browser instances: stable hex sessions, own runtime, autoConnect args', () => {
+test('named browser instances keep independent runtime and startup policy', () => {
   const specs = JSON.parse(readFileSync(new URL('../config/hosts.json', import.meta.url)));
   const ctx = { platform: 'win32', home: 'C:\\Users\\PC', env: { LOCALAPPDATA: 'C:\\Users\\PC\\AppData\\Local' } };
   const win = HostProfile.select(specs, ctx);
-  assert.equal(win.session, 'cc001');
   const real = win.instance('real');
-  assert.equal(real.session, win.instance('real').session);
-  assert.match(real.session, /^cc[a-f0-9]{6}$/);
-  assert.notEqual(real.session, 'cc001');
+  assert.equal(real.mode, 'extension');
   assert.match(real.runtime, /runtime-real$/);
-  const args = real.daemonArgs('C:\\x');
-  assert.ok(args.includes('--autoConnect'));
-  assert.ok(!args.includes('--userDataDir') && !args.includes('--headless'));
   assert.equal(real.starter.name, 'chrome-control-real');
   assert.throws(() => win.instance('nope'), /Unknown browser instance/);
   const mac = HostProfile.select(specs, { platform: 'darwin', home: '/Users/brook' });
   assert.equal(mac.instance('default'), mac);
   assert.throws(() => mac.instance('real'), /Unknown browser instance/);
-  assert.deepEqual(mac.profiles.userDataDir, '/Users/brook/Library/Application Support/Google/Chrome');
-  assert.deepEqual(win.profiles.userDataDir, 'C:\\Users\\PC\\AppData\\Local\\Google\\Chrome\\User Data');
+  assert.equal(mac.profiles.userDataDir, '/Users/brook/Library/Application Support/Google/Chrome');
+  assert.equal(win.profiles.userDataDir, 'C:\\Users\\PC\\AppData\\Local\\Google\\Chrome\\User Data');
 });
 
 test('profile discovery reads registration metadata without browsing history', async () => {
@@ -154,7 +145,7 @@ test('pages parse from list_pages text and route by profile', async t => {
   // instance whose daemon serves those profiles.
   const inventory = () => ({ list: async () => [{ dir: 'Profile 1', name: 'Brook' }] });
   const makeHost = tag => ({
-    profile: { runtime: `/tmp/rt-${tag}`, mode: tag === 'real' ? 'autoConnect' : 'dedicated',
+    profile: { runtime: `/tmp/rt-${tag}`, mode: tag === 'real' ? 'extension' : 'dedicated',
       profiles: { userDataDir: '/ud', browser: 'real' } },
     daemon: { call: async (n, a) => { seen.push([tag, n, a]); return {}; }, status: async () => ({ running: true, pid: 7 }) },
     starter: { start: async () => ({}) },

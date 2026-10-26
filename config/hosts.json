@@ -7,7 +7,7 @@
       "{home}/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil"
     ],
     "browser": {
-      "mode": "autoConnect"
+      "mode": "extension"
     },
     "starter": {
       "kind": "direct"
@@ -36,7 +36,7 @@
     },
     "browsers": {
       "real": {
-        "mode": "autoConnect",
+        "mode": "extension",
         "executablePath": "C:/Program Files/Google/Chrome/Application/chrome.exe",
         "userDataDir": "{LOCALAPPDATA}/Google/Chrome/User Data",
         "runtime": "{LOCALAPPDATA}/chrome-control/runtime-real",

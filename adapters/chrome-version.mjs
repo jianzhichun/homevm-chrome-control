@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { windowsTool } from './windows-tools.mjs';
 
 const run = promisify(execFile);
 
@@ -9,7 +10,7 @@ const run = promisify(execFile);
 export async function windowsChromeMajor(executablePath, exec = run) {
   const script = `(Get-Item -LiteralPath '${executablePath.replace(/'/g, "''")}').VersionInfo.ProductMajorPart`;
   const encoded = Buffer.from(script, 'utf16le').toString('base64');
-  const { stdout } = await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { windowsHide: true, timeout: 30_000 });
+  const { stdout } = await exec(windowsTool('powershell.exe'), ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { windowsHide: true, timeout: 30_000 });
   const major = stdout.trim();
   if (!/^\d{2,4}$/.test(major)) throw new Error(`Could not read the Chrome version from ${executablePath}: ${JSON.stringify(stdout)}`);
   return Number(major);

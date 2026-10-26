@@ -13,6 +13,7 @@ export const DEDICATED_PROFILE = 'chrome-control';
 
 export class BrowserControl {
   constructor(actor, host = hostInstance(), leaseRoot = join(host.profile.runtime, 'leases'), hostFactory = hostInstance) {
+    host = host.forActor?.(actor) || host;
     Object.assign(this, { actor, host, hostFactory, leaseRoot });
     this.daemon = host.daemon;
     this.starter = host.starter;
@@ -21,12 +22,24 @@ export class BrowserControl {
     this.managed = new ManagedPages(this);
   }
 
-  async start() { return this.starter.start(); }
-  async boot() {
-    const current = await this.daemon.status().catch(() => ({ running: false }));
-    return current.running ? undefined : this.daemon.start();
+  async scoped(selector) {
+    const account = selector && await this.resolve(selector);
+    return account ? this.controlFor(account.dir) : this;
   }
-  async tools() { return toolDirectory(root); }
+  async start(selector) { return (await this.scoped(selector)).starter.start(); }
+  async stop(selector) { return (await this.scoped(selector)).daemon.stop(); }
+  async status(selector) { return (await this.scoped(selector)).daemon.status(); }
+  async boot(selector) {
+    const c = await this.scoped(selector);
+    if (c.host.profile?.mode === 'extension' && !c.daemon.accountProfile) return undefined;
+    const current = await c.daemon.status();
+    return current.running ? undefined : c.daemon.start();
+  }
+  async tools() {
+    const tools = await toolDirectory(root);
+    if (!this.daemon.supportedTools) return tools;
+    return tools.filter(t => t.name.startsWith('browser_') || this.daemon.supportedTools.has(t.name));
+  }
 
   async profiles() {
     const found = [];
@@ -40,6 +53,7 @@ export class BrowserControl {
 
   hostFor(profileDir) {
     if (!profileDir || profileDir === DEDICATED_PROFILE) return this.host;
+    if (this.host.forAccount) return this.host.forAccount(profileDir, this.actor);
     const serving = this.host.profile.profiles;
     if (!serving || !this.host.profiles) throw new Error(`No profile discovery on this host; cannot route ${profileDir}`);
     return serving.browser === 'default' ? this.host : this.hostFactory(serving.browser);

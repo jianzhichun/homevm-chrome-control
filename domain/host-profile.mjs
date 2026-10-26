@@ -1,12 +1,6 @@
-import { createHash } from 'node:crypto';
 import { posix, win32 } from 'node:path';
 
-const BASE_ARGS = ['--no-usage-statistics', '--no-performance-crux', '--redactNetworkHeaders', '--experimentalVision'];
-const MODES = {
-  autoConnect: () => ['--autoConnect'],
-  dedicated: b => ['--userDataDir', b.userDataDir, ...(b.headless ? ['--headless'] : []), '--executablePath', b.executablePath],
-  isolated: b => ['--headless', '--isolated', '--executablePath', b.executablePath],
-};
+const MODES = new Set(['extension', 'dedicated', 'isolated']);
 
 // Pure description of one browser host: where runtime state lives, which
 // directories the file tools may touch, and how the official daemon reaches
@@ -32,15 +26,13 @@ export class HostProfile {
     this.home = home;
     this.instanceName = instance;
     const mode = env.CHROME_CONTROL_MODE || spec.browser.mode;
-    if (!MODES[mode]) throw new Error(`Unknown browser mode: ${mode}`);
+    if (!MODES.has(mode)) throw new Error(`Unknown browser mode: ${mode}`);
+    if (env.CHROME_CONTROL_DRIVER && env.CHROME_CONTROL_DRIVER !== 'playwright-cli') throw new Error('Only the official Playwright CLI backend is supported');
     this.mode = mode;
   }
 
-  // A named instance view of this host: same host-level roots and discovery,
-  // but its own browser spec, runtime dir and starter. The daemon session id
-  // must stay hex (upstream requirement) and stable across restarts; the
-  // default keeps its historical name so deployed tasks and sockets survive
-  // the upgrade unchanged.
+  // Named browser instances share discovery but have independent runtime and
+  // startup policy. Connection/session identity is owned by PlaywrightSession.
   instance(name) {
     if (!name || name === 'default') return this;
     const one = this.spec.browsers?.[name];
@@ -51,11 +43,6 @@ export class HostProfile {
       starter: one.starter || this.spec.starter,
     };
     return new HostProfile(spec, { platform: this.platform, home: this.home, env: this.env, instance: name });
-  }
-
-  get session() {
-    if (!this.instanceName) return 'cc001';
-    return 'cc' + createHash('sha256').update(this.instanceName).digest('hex').slice(0, 6);
   }
 
   substitute(template, facts = {}) {
@@ -72,9 +59,30 @@ export class HostProfile {
   wants(fact) { return Object.values(this.spec.browser).some(v => typeof v === 'string' && v.includes(`{${fact}}`)); }
   get executablePath() { return this.spec.browser.executablePath && this.expand(this.spec.browser.executablePath); }
 
+  get browser() {
+    const value = Object.fromEntries(Object.entries(this.spec.browser).map(([key, v]) =>
+      [key, typeof v === 'string' && /Path|Dir$/.test(key) ? this.expand(v) : v]));
+    if (this.env.CHROME_CONTROL_USER_DATA_DIR) value.userDataDir = this.path.resolve(this.env.CHROME_CONTROL_USER_DATA_DIR);
+    return value;
+  }
+
+  playwrightConfig(facts = {}) {
+    const browser = this.browser;
+    const args = browser.userAgent ? [`--user-agent=${this.substitute(browser.userAgent, facts)}`] : [];
+    return { browser: { browserName: 'chromium', isolated: this.mode === 'isolated',
+      ...(browser.userDataDir ? { userDataDir: browser.userDataDir } : {}),
+      launchOptions: { executablePath: browser.executablePath, headless: browser.headless ?? true, args,
+        ignoreDefaultArgs: ['--password-store=basic', '--use-mock-keychain'] } },
+      outputMode: 'stdout' };
+  }
+
   get runtime() { return this.env.CHROME_CONTROL_RUNTIME || this.expand(this.spec.runtime); }
   get tmp() { return this.spec.tmp ? this.expand(this.spec.tmp) : undefined; }
-  get starter() { return this.spec.starter; }
+  get starter() {
+    return this.env.CHROME_CONTROL_START_TASK
+      ? { ...this.spec.starter, name: this.env.CHROME_CONTROL_START_TASK }
+      : this.spec.starter;
+  }
 
   // Where finished downloads are collected and renamed. Lives inside a
   // configured file root so the file layer can verify it.
@@ -89,13 +97,4 @@ export class HostProfile {
   }
 
   roots(root) { return [root, ...this.spec.roots.map(r => this.expand(r))]; }
-
-  daemonArgs(root, facts = {}) {
-    const browser = Object.fromEntries(Object.entries(this.spec.browser)
-      .map(([key, value]) => [key, typeof value === 'string' && /Path|Dir$/.test(key) ? this.expand(value) : value]));
-    // A headed UA for the same Chrome version: headless otherwise announces
-    // itself as "HeadlessChrome/<v>" and some publishers refuse it.
-    const ua = browser.userAgent ? [`--chromeArg=--user-agent=${this.substitute(browser.userAgent, facts)}`] : [];
-    return [...BASE_ARGS, ...this.roots(root).flatMap(w => ['--workspace', w]), ...MODES[this.mode](browser), ...ua];
-  }
 }

@@ -22,6 +22,7 @@ export async function sourceManifest(root) {
 
 export async function capabilities(root) {
   const files = await sourceManifest(root);
-  return { protocolVersion: 1, capabilities: ['account-routing-v1', 'managed-profile-tabs-v1', 'website-identity-v1', 'download-v1'],
+  return { protocolVersion: 1, backend: 'playwright-cli', interface: 'cli',
+    capabilities: ['account-routing-v1', 'managed-profile-tabs-v1', 'website-identity-v1', 'download-v1', 'shared-cli-session-v1', 'persistent-profile-pairing-v1'],
     sourceDigest: createHash('sha256').update(JSON.stringify(files)).digest('hex'), files };
 }

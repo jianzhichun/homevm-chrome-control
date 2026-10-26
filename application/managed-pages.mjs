@@ -1,6 +1,5 @@
-import { setTimeout as delay } from 'node:timers/promises';
 import { daemonGeneration } from '../adapters/bindings.mjs';
-import { uniqueAnchor, parsePageLines } from '../domain/pages.mjs';
+import { parsePageLines } from '../domain/pages.mjs';
 import { validateDestination } from '../domain/accounts.mjs';
 import { payload } from './page.mjs';
 
@@ -12,9 +11,7 @@ export class ManagedPages {
     const generation = daemonGeneration(await c.daemon.status());
     const raw = await c.daemon.call('list_pages');
     if (raw?.isError) payload(raw);
-    if (JSON.stringify(raw).includes('browser was restarted or reconnected')) await c.host.bindings.invalidate(generation);
-    const pages = parsePageLines(raw);
-    return { generation, pages };
+    return { generation, pages: parsePageLines(raw) };
   }
 
   async require(account, pageId) {
@@ -39,34 +36,21 @@ export class ManagedPages {
   async open(account, destination) {
     const url = validateDestination(destination);
     const c = this.control;
+    if (c.host.profile.mode !== 'extension') throw new Error('Named accounts require a paired existing-browser Profile');
+    await c.starter.start();
     const generation = daemonGeneration(await c.daemon.status());
-    const anchor = await c.host.launcher.open(account.dir);
-    let page;
+    const opened = await c.daemon.openPage(url);
     try {
-      const deadline = Date.now() + 15_000;
-      while (Date.now() < deadline) {
-        const current = await this.list();
-        if (current.generation !== generation) throw new Error('Daemon generation changed while opening account tab');
-        page = uniqueAnchor(current.pages, anchor.url);
-        if (page) break;
-        await delay(250);
-      }
-      if (!page) throw new Error('Target Profile tab is not visible to this Chrome connection; no other account was used');
-      await c._call('browser_claim_page', { pageId: page.pageId });
-      const binding = { pageId: page.pageId, actor: c.actor, profile: account.dir, email: account.email, source: 'chrome-profile-ipc-one-time-local-anchor', createdAt: new Date().toISOString() };
+      await c._call('browser_claim_page', { pageId: opened.pageId });
+      const binding = { pageId: opened.pageId, actor: c.actor, profile: account.dir, email: account.email,
+        source: 'official-playwright-extension-profile-pairing', createdAt: new Date().toISOString() };
       await c.host.bindings.save(generation, binding);
-      const response = await c._call('navigate_page', { pageId: page.pageId, type: 'url', url, timeout: 25_000 });
-      payload(response);
-      // Recheck after navigation; a reconnect must not bless a stale pageId.
-      await this.require(account, page.pageId);
-      return { account, pageId: page.pageId, url, binding };
+      await this.require(account, opened.pageId);
+      return { account, ...opened, binding };
     } catch (error) {
-      if (page) {
-        const stillBound = await this.require(account, page.pageId).catch(() => null);
-        if (stillBound) await c._call('close_page', { pageId: page.pageId }).catch(() => {});
-        await c.host.bindings.remove(generation, page.pageId);
-      } else await c.host.launcher.closeAnchor(anchor.url).catch(() => {});
+      await c.daemon.call('close_page', { pageId: opened.pageId }).catch(() => {});
+      await c.host.bindings.remove(generation, opened.pageId);
       throw error;
-    } finally { await anchor.dispose(); }
+    }
   }
 }

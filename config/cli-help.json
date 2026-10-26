@@ -46,9 +46,14 @@
     "summary": "读取协议能力和运行源码 hash，核对两端部署",
     "usage": "browserctl --machine MACHINE capabilities"
   },
+  "pair": {
+    "summary": "为指定现有 Chrome Profile 保存官方扩展配对 token",
+    "usage": "browserctl --account EMAIL_OR_ALIAS pair",
+    "notes": ["先在指定 Profile 正常安装微软官方 Playwright Extension。", "token 从不回显的终端输入或 stdin 读取，只保存在浏览器机器的 0600 私有文件中。", "配对可撤销；扩展卸载或 token 重置后需重新配对。"]
+  },
   "start": {
-    "summary": "明确启动浏览器控制 daemon；不绕过 Chrome 原生 Allow",
-    "usage": "browserctl --machine MACHINE start"
+    "summary": "明确连接指定账号的控制后端；Mac 使用官方扩展持久配对",
+    "usage": "browserctl --machine MACHINE --account EMAIL_OR_ALIAS start"
   },
   "stop": {
     "summary": "停止指定控制 daemon（会影响共享连接，操作前确认使用者）",
@@ -58,10 +63,5 @@
     "summary": "仅在已授权专用实例中执行既有 Cambridge 登录流程",
     "usage": "browserctl --machine MACHINE login [ENTRY_URL]",
     "notes": ["不适用于个人 --account；凭据不进入 argv。", "需要原生确认、验证码或二次认证时按正常授权边界处理。"]
-  },
-  "mcp": {
-    "summary": "可选的 MCP stdio 兼容入口；普通操作不需要它",
-    "usage": "browserctl --actor TASK --account EMAIL_OR_ALIAS mcp",
-    "notes": ["浏览器驱动复用官方 Chrome DevTools MCP daemon，但日常用户接口是 CLI。", "CLI 不依赖 Claude skill，不会自动注册会话 MCP。"]
   }
 }
