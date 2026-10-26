@@ -4,7 +4,7 @@
     "tmp": "{home}/tmp/chrome-control",
     "roots": [
       "{home}/Downloads",
-      "{home}/Brook/Sync/30_Resources/31_Knowledge_Base/Cam/MPhil"
+      "{home}/Brook/Sync/30-resources/31-knowledge-base/cam/mphil"
     ],
     "browser": {
       "mode": "extension"
