@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-26",
+  "codeCommit": "00947d3",
+  "backend": "official-playwright-cli",
+  "cliVersion": "0.1.22",
+  "sourceDigest": "abae5057a89d6e3715249dc65c95632f0b955f13aba9e39801e72b271c98fbf8",
+  "verifiedRuntimeSourceFiles": 61,
+  "checks": {
+    "fullContractTests": { "passed": 22, "failed": 0 },
+    "javascriptSyntaxFilesAtFullPass": 41,
+    "libraryImportClosureAtFullPass": 34,
+    "affectedNativeModulesSyntaxCheckedAfterwards": 4,
+    "pythonCodeShape": "passed",
+    "windowsNativeToolFixRelatedTests": { "passed": 4, "failed": 0 },
+    "windowsOwnerOnlyDaclLiveProbe": "passed",
+    "sameSmokeScriptOnBothPlatforms": "passed",
+    "fixturePdfBytes": 329,
+    "fixturePdfSha256BothPlatforms": "7d5371d3d9d5588cdb4c7851773488380aa8e9644001ad32ba5dad8084272746"
+  },
+  "mac": {
+    "target": "zengxiaoximac01",
+    "mode": "extension",
+    "profile": "Profile 1",
+    "officialExtensionVersion": "0.4.0",
+    "pairingFileMode": "0600",
+    "activeOldMcpProcesses": 0,
+    "retiredLaunchAgentExists": false,
+    "tokenObservedInProcessArguments": false,
+    "relayListener": "IPv6 loopback only",
+    "reconnectSeconds": [1.437, 1.495],
+    "manualAllowRequiredForReconnect": false,
+    "defaultEntryOutlookWhoamiHttpStatus": 200,
+    "originalMailIdentityVerified": true,
+    "sourceRollback": "/Users/brook/workspace/chrome-control/evidence/rollback/20261026-112835-887150/source.tar.gz"
+  },
+  "windows": {
+    "target": "zengxiaoxiwin01",
+    "mode": "dedicated",
+    "originalProfile": "%LOCALAPPDATA%/chrome-control/profile",
+    "activeOldMcpProcesses": 0,
+    "productionCliPidAtReadback": 35308,
+    "productionChromePidAtReadback": 37796,
+    "interactiveSessionIdAtReadback": 1,
+    "chromeUsesDebuggingPipe": true,
+    "mockKeychainFlagPresent": false,
+    "bothFormalStartupTasksEnabled": true,
+    "bothFormalStartupTasksLastResult": 0,
+    "reconnectSecondsAfterLifecycleFix": [8.431, 8.774],
+    "stoppedSessionImmediatelyInvalidated": true,
+    "researchBrowserPidsUnchanged": [35448, 43788],
+    "temporaryVerificationTaskRemoved": true,
+    "temporaryVerificationProfilesRemoved": true,
+    "formalTaskBackup": "C:/Users/PC/workspace/chrome-control/evidence/cli-cutover-20261026-112718"
+  },
+  "observedAndResolved": [
+    "Windows live restart probe exposed a stale-PID window; shared lifecycle locking and atomic state invalidation fixed it, followed by two successful live restarts.",
+    "Windows private-file probe selected Git-Bash whoami.exe; native System32 tool resolution fixed it and the live DACL probe passed.",
+    "One production mail probe was correctly blocked by another active actor lease; after verified release, the same default-entry whoami returned HTTP 200. No lease was stolen."
+  ],
+  "cleanup": {
+    "ownedHttpFixturesStopped": true,
+    "ownedSmokeTabsClosed": true,
+    "ownedFixtureDownloadsMovedToWorkspaceEvidence": true
+  },
+  "notClaimed": [
+    "Windows existing-personal-Profile extension pairing was not exercised; the tested Windows production path is the existing dedicated persistent Profile.",
+    "No operating-system logout or machine reboot was performed.",
+    "Retired DevTools performance, memory, network, console and dialog compatibility tools are not claimed as migrated."
+  ]
+}
