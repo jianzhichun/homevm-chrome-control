@@ -3,7 +3,7 @@
     "ssh": "zengxiaoximac01",
     "os": "darwin",
     "node": "/opt/homebrew/bin/node",
-    "root": "/Users/brook/workspace/chrome-control"
+    "root": "/Users/brook/Brook/Local/chrome-control"
   },
   "zengxiaoxiwin01": {
     "ssh": "zengxiaoxiwin01",
